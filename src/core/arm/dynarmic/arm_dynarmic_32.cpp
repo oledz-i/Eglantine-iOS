@@ -190,7 +190,11 @@ void ArmDynarmic32::MakeJit(Common::PageTable* page_table) {
     config.enable_cycle_counting = !m_uses_wall_clock;
 
     // Code cache size
-#if defined(ARCHITECTURE_arm64) || defined(__sun__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
+#if defined(EDEN_IOS)
+    // Every core's cache comes out of one debugger-prepared pool (dynarmic ios_jit), and on TXM
+    // devices each of its pages is resident, so keep it small; a full cache is just flushed.
+    config.code_cache_size = std::uint32_t(48_MiB);
+#elif defined(ARCHITECTURE_arm64) || defined(__sun__) || defined(__NetBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
     config.code_cache_size = std::uint32_t(128_MiB);
 #else
     config.code_cache_size = std::uint32_t(512_MiB);

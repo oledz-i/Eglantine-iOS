@@ -59,6 +59,9 @@
 #include "yuzu_cmd/emu_window/emu_window_sdl3_null.h"
 #include "yuzu_cmd/emu_window/emu_window_sdl3_vk.h"
 #include "yuzu_cmd/nx2_sampler.h"
+#ifdef EDEN_IOS
+#include "ios/ios_launcher.h"
+#endif
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <sys/resource.h>
@@ -294,7 +297,21 @@ static bool PackNup(const std::string& source, const std::string& output) {
     }
 }
 
+// Errors before the game runs: eden-cli only logs them, the iOS app also shows them, since it
+// would otherwise just close.
+static SDL_AppResult FailStartup(const std::string& message) {
+    LOG_CRITICAL(Frontend, "{}", message);
+#ifdef EDEN_IOS
+    IosLauncher::ShowAlert("Can't start the game", message);
+#endif
+    return SDL_APP_FAILURE;
+}
+
 extern "C" SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
+#ifdef EDEN_IOS
+    // Before anything touches the user folder or the JIT pool.
+    IosLauncher::PrepareEnvironment();
+#endif
 #ifdef _WIN32
     SetUnhandledExceptionFilter(WriteCrashDump);
 #endif
@@ -348,6 +365,17 @@ extern "C" SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return PackNup(*lp.pack_nup_source, lp.filepath) ? SDL_APP_SUCCESS : SDL_APP_FAILURE;
     }
 
+#ifdef EDEN_IOS
+    if (lp.filepath.empty()) {
+        lp.filepath = IosLauncher::PickGame();
+    }
+    LOG_INFO(Frontend, "iOS: {}", IosLauncher::JitStatus());
+    if (!IosLauncher::JitAvailable()) {
+        return FailStartup("JIT is not enabled (" + IosLauncher::JitStatus() +
+                           "). Close the app and launch it through StikDebug; on iOS 26 select "
+                           "the universal script.");
+    }
+#endif
     if (lp.filepath.empty()) {
         LOG_CRITICAL(Frontend, "Failed to load ROM: No ROM specified");
         return SDL_APP_FAILURE;
@@ -396,26 +424,20 @@ extern "C" SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     case Core::SystemResultStatus::Success:
         break; // Expected case
     case Core::SystemResultStatus::ErrorGetLoader:
-        LOG_CRITICAL(Frontend, "Failed to obtain loader for {}!", lp.filepath);
-        return SDL_APP_FAILURE;
+        return FailStartup(fmt::format("Failed to obtain loader for {}!", lp.filepath));
     case Core::SystemResultStatus::ErrorLoader:
-        LOG_CRITICAL(Frontend, "Failed to load ROM!");
-        return SDL_APP_FAILURE;
+        return FailStartup("Failed to load ROM!");
     case Core::SystemResultStatus::ErrorNotInitialized:
-        LOG_CRITICAL(Frontend, "CPUCore not initialized");
-        return SDL_APP_FAILURE;
+        return FailStartup("CPUCore not initialized");
     case Core::SystemResultStatus::ErrorVideoCore:
-        LOG_CRITICAL(Frontend, "Failed to initialize VideoCore!");
-        return SDL_APP_FAILURE;
+        return FailStartup("Failed to initialize VideoCore!");
     default:
         const u16 loader_id = u16(Core::SystemResultStatus::ErrorLoader);
         const u16 error_id = u16(load_result) - loader_id;
-        LOG_CRITICAL(Frontend,
-            "While attempting to load the ROM requested, an error occurred. Please "
-            "refer to the Eden wiki for more information or the Eden discord for "
-            "additional help.\n\nError Code: {:04X}-{:04X}\nError Description: {}",
-            loader_id, error_id, Loader::ResultStatus(error_id));
-        return SDL_APP_FAILURE;
+        return FailStartup(fmt::format(
+            "While attempting to load the ROM requested, an error occurred. Check that your keys "
+            "and firmware are installed.\n\nError Code: {:04X}-{:04X}\nError Description: {}",
+            loader_id, error_id, Loader::ResultStatus(error_id)));
     }
 
     if (lp.use_multiplayer) {

@@ -21,7 +21,17 @@ std::shared_ptr<Common::DynamicLibrary> OpenLibrary(
     return context->GetDriverLibrary();
 #else
     auto library = std::make_shared<Common::DynamicLibrary>();
-#ifdef __APPLE__
+#if defined(EDEN_IOS)
+    // iOS bundles are flat: MoltenVK.framework sits in <app>/Frameworks.
+    const char* library_paths[] = {std::getenv("LIBVULKAN_PATH"),
+                                   "@executable_path/Frameworks/MoltenVK.framework/MoltenVK",
+                                   "@rpath/MoltenVK.framework/MoltenVK"};
+    for (const auto& library_path : library_paths) {
+        if (library_path && library->Open(library_path)) {
+            break;
+        }
+    }
+#elif defined(__APPLE__)
     const auto libvulkan_filename =
         Common::FS::GetBundleDirectory() / "Contents/Frameworks/libvulkan.1.dylib";
     const auto libmoltenvk_filename =

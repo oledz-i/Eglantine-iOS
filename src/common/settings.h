@@ -173,7 +173,7 @@ struct Values {
 
     // Audio
     SwitchableSetting<AudioEngine> sink_id{linkage,
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(EDEN_IOS)
                                            AudioEngine::Sdl3,
 #else
                                            AudioEngine::Auto,
@@ -365,7 +365,7 @@ struct Values {
                                                     true,
                                                     true};
     SwitchableSetting<int, true> fsr_sharpening_slider{linkage,
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(EDEN_IOS)
                                                        0,
 #else
                                                        25,
@@ -511,7 +511,7 @@ struct Values {
                                          linkage, 0, "bg_blue", Category::Renderer, Specialization::Default, true, true};
 
     SwitchableSetting<GpuAccuracy, true> gpu_accuracy{linkage,
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(EDEN_IOS)
                                                       GpuAccuracy::Low,
 #else
                                                       GpuAccuracy::High,
@@ -551,7 +551,7 @@ struct Values {
                                                       "nvdec_emulation", Category::RendererAdvanced};
 
     SwitchableSetting<AnisotropyMode, true> max_anisotropy{linkage,
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(EDEN_IOS)
                                                            AnisotropyMode::Default,
 #else
                                                            AnisotropyMode::Automatic,
@@ -604,7 +604,7 @@ struct Values {
                                                 Category::RendererAdvanced};
 
     SwitchableSetting<bool> use_reactive_flushing{linkage,
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(EDEN_IOS)
                                                   false,
 #else
                                                   true,
@@ -650,7 +650,7 @@ struct Values {
                                                         true,
                                                         true};
     SwitchableSetting<bool> async_presentation{linkage,
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(EDEN_IOS)
                                                true,
 #else
                                                false,
@@ -707,7 +707,7 @@ struct Values {
                                                 Specialization::Scalar};
 
     SwitchableSetting<bool> vertex_input_dynamic_state{linkage,
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(EDEN_IOS)
                                                        false,
 #else
                                                        true,

@@ -71,6 +71,40 @@ if(WIN32)
     endif()
 endif()
 
+if (IOS)
+    target_sources(yuzu-cmd PRIVATE
+        ../ios/ios_launcher.h
+        ../ios/ios_launcher.mm
+    )
+    set_source_files_properties(../ios/ios_launcher.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(yuzu-cmd PRIVATE dynarmic)
+
+    if (NOT DEFINED EGLANTINE_IOS_VERSION)
+        set(EGLANTINE_IOS_VERSION "0.1.0")
+    endif()
+    if (NOT DEFINED EGLANTINE_IOS_BUILD)
+        set(EGLANTINE_IOS_BUILD "1")
+    endif()
+
+    set_target_properties(yuzu-cmd PROPERTIES
+        OUTPUT_NAME Eglantine
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/../ios/Info.plist.in"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "dev.eglantine.ios"
+        MACOSX_BUNDLE_BUNDLE_NAME "Eglantine"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${EGLANTINE_IOS_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${EGLANTINE_IOS_BUILD}"
+    )
+    target_link_options(yuzu-cmd PRIVATE "LINKER:-rpath,@executable_path/Frameworks")
+
+    # MoltenVK is loaded at runtime from the bundle (see vulkan_library.cpp).
+    add_custom_command(TARGET yuzu-cmd POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:yuzu-cmd>/Frameworks"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${MOLTENVK_FRAMEWORK}"
+                "$<TARGET_BUNDLE_CONTENT_DIR:yuzu-cmd>/Frameworks/MoltenVK.framework"
+        COMMENT "Embedding MoltenVK.framework")
+endif()
+
 create_target_directory_groups(yuzu-cmd)
 
 # needed for vma

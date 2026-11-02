@@ -26,6 +26,8 @@
 #if defined(__linux__)
 #include <sys/random.h>
 #elif defined(__APPLE__)
+#include <TargetConditionals.h>
+#include <string>
 #include <sys/types.h>
 #include <sys/random.h>
 #include <mach/vm_map.h>
@@ -524,6 +526,17 @@ public:
                fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, static_cast<off_t>(offset),
                          static_cast<off_t>(length)) == 0;
     }
+#elif defined(__APPLE__)
+    // APFS frees the blocks and the cached pages behind them.
+    bool PunchHole(size_t offset, size_t length) {
+        if (fd < 0) {
+            return false;
+        }
+        fpunchhole_t hole{};
+        hole.fp_offset = static_cast<off_t>(offset);
+        hole.fp_length = static_cast<off_t>(length);
+        return fcntl(fd, F_PUNCHHOLE, &hole) == 0;
+    }
 #endif
 
     bool Init() {
@@ -537,11 +550,22 @@ public:
 #elif defined(__FreeBSD__)
         fd = shm_open(SHM_ANON, O_RDWR, 0600);
 #elif defined(__APPLE__) || defined(__managarm__)
-        // macOS doesn't have memfd_create, use anonymous temporary file
-        char template_path[] = "/tmp/eden_mem_XXXXXX";
-        fd = mkstemp(template_path);
+        // macOS doesn't have memfd_create, use anonymous temporary file. Sandboxed apps (and iOS)
+        // can't write /tmp, TMPDIR points into their container.
+        // On iOS this file is what keeps guest memory out of the jetsam footprint: its pages are
+        // file-backed, so under pressure the kernel writes them back to flash instead of killing
+        // the app, and the sparse file only takes space for pages the guest has touched.
+        std::string template_path = "/tmp";
+        if (const char* tmpdir = std::getenv("TMPDIR"); tmpdir != nullptr && tmpdir[0] != '\0') {
+            template_path = tmpdir;
+        }
+        if (template_path.back() != '/') {
+            template_path += '/';
+        }
+        template_path += "eden_mem_XXXXXX";
+        fd = mkstemp(template_path.data());
         if (fd >= 0) {
-            unlink(template_path);
+            unlink(template_path.c_str());
         }
 #else
         fd = memfd_create("HostMemory", 0);
@@ -574,6 +598,12 @@ public:
             return false;
         }
 
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+        // No fastmem arena: iOS caps the address space far below the 512 GiB it needs, and
+        // dynarmic has no fault handler there. Guest memory goes through the page table instead.
+        virtual_base = nullptr;
+        return true;
+#endif
         // Virtual memory initialization
         virtual_base = virtual_map_base = static_cast<u8*>(ChooseVirtualBase(virtual_size));
         if (virtual_base == MAP_FAILED) {
@@ -800,7 +830,7 @@ void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission 
 }
 
 void HostMemory::ClearBackingRegion(size_t physical_offset, size_t length, u32 fill_value) {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     const size_t first = AlignUp(physical_offset, PageAlignment);
     const size_t last = AlignDown(physical_offset + length, PageAlignment);
     static const bool punch = [] {

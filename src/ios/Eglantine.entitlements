@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Lets StikDebug attach, which is what enables JIT. -->
+	<key>get-task-allow</key>
+	<true/>
+	<!-- Raises the jetsam memory limit. Needs a paid developer account or a signer that keeps it. -->
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+	<!-- Larger address space for the guest memory mapping (the 12 GiB Switch 2 layout needs ~20 GiB). -->
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+</dict>
+</plist>

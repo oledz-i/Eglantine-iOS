@@ -253,6 +253,12 @@ if ("arm64" IN_LIST ARCHITECTURE)
         backend/arm64/a64_core.h
         backend/arm64/a64_interface.cpp
     )
+    if (IOS)
+        target_sources(dynarmic PRIVATE
+            backend/arm64/ios_jit.cpp
+            interface/ios_jit.h
+        )
+    endif()
 endif()
 
 if ("riscv64" IN_LIST ARCHITECTURE)
@@ -325,6 +331,9 @@ endif()
 
 if (WIN32)
     target_sources(dynarmic PRIVATE backend/exception_handler_windows.cpp)
+elseif (IOS)
+    # No fastmem on iOS: guest memory has no host arena to fault into.
+    target_sources(dynarmic PRIVATE backend/exception_handler_generic.cpp)
 elseif (APPLE)
     find_path(MACH_EXC_DEFS_DIR "mach/mach_exc.defs")
     if (NOT MACH_EXC_DEFS_DIR)

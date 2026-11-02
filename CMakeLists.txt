@@ -6,6 +6,10 @@ cmake_minimum_required(VERSION 3.31)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "macOS deployment target")
 project(yuzu)
 
+if (IOS)
+    enable_language(OBJC OBJCXX)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules/find")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/externals/cmake-modules")
@@ -43,6 +47,29 @@ endif()
 # NetBSD: Fun for the whole family!
 if (NETBSD)
     set(ENV{PKG_CONFIG_PATH} "${PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/pkg/lib/ffmpeg7/pkgconfig")
+endif()
+
+# iOS: eden-cli (SDL3) becomes the app, everything else that needs a desktop or a host library
+# iOS doesn't ship is left out. The prebuilt CI packages (FFmpeg, SDL3, OpenSSL) have iOS builds.
+if (IOS)
+    set(ENABLE_QT OFF)
+    set(YUZU_CMD ON)
+    set(YUZU_ROOM OFF)
+    set(YUZU_ROOM_STANDALONE OFF)
+    set(YUZU_TESTS OFF)
+    set(BUILD_TESTING OFF)
+    set(ENABLE_WEB_SERVICE OFF)
+    set(ENABLE_UPDATE_CHECKER OFF)
+    set(USE_DISCORD_PRESENCE OFF)
+    set(ENABLE_LIBUSB OFF)
+    set(ENABLE_CUBEB OFF)
+    set(ENABLE_LSFG OFF)
+    set(ENABLE_RESHADE OFF)
+    set(ENABLE_OPENGL OFF)
+    set(ENABLE_WERROR OFF)
+    set(YUZU_CRASH_DUMPS OFF)
+    set(YUZU_DISABLE_LLVM ON)
+    add_compile_definitions(EDEN_IOS=1)
 endif()
 
 cmake_dependent_option(YUZU_STATIC_ROOM "Build a static room executable only (CI only)" OFF "LINUX" OFF)
@@ -240,7 +267,7 @@ endif()
 option(ENABLE_CUBEB "Enables the cubeb audio backend" ON)
 
 set(EXT_DEFAULT OFF)
-if (MSVC OR ANDROID)
+if (MSVC OR ANDROID OR IOS)
     set(EXT_DEFAULT ON)
 endif()
 
@@ -533,7 +560,15 @@ endfunction()
 # Put these BEFORE EXTERNALS or Boost WILL die
 # =============================================
 
-if (APPLE)
+if (IOS)
+    foreach(fw UIKit Metal QuartzCore CoreGraphics CoreVideo CoreMedia VideoToolbox Security
+            UniformTypeIdentifiers Foundation CoreFoundation GameController AVFoundation AudioToolbox
+            CoreAudio CoreHaptics CoreMotion CoreBluetooth OpenGLES)
+        find_library(${fw}_LIBRARY ${fw} REQUIRED)
+        list(APPEND PLATFORM_LIBRARIES ${${fw}_LIBRARY})
+    endforeach()
+    list(APPEND PLATFORM_LIBRARIES iconv bz2 z)
+elseif (APPLE)
     foreach(fw Carbon Metal Cocoa IOKit CoreVideo CoreMedia Security UniformTypeIdentifiers Foundation)
         find_library(${fw}_LIBRARY ${fw} REQUIRED)
         list(APPEND PLATFORM_LIBRARIES ${${fw}_LIBRARY})

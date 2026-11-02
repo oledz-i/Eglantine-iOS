@@ -169,6 +169,14 @@
         "repo": "V380-Ori/Ryujinx.MoltenVK",
         "version": "v1.4.1-ryujinx"
     },
+    "moltenvk-ios": {
+        "artifact": "MoltenVK-iOS.tar",
+        "bundled": true,
+        "hash": "0ef8dfe27d660a2bc78d9a38ab395f8c54e3ba054aa190f3df7a8a1dad548fec53bae49a36908f78937c5b68614354e4d445dc1f7a033666e5b13db7e9407bbd",
+        "package": "MoltenVK-iOS",
+        "repo": "V380-Ori/Ryujinx.MoltenVK",
+        "version": "v1.4.1-ryujinx"
+    },
     "nlohmann": {
         "hash": "6cc1e86261f8fac21cc17a33da3b6b3c3cd5c116755651642af3c9e99bb3538fd42c1bd50397a77c8fb6821bc62d90e6b91bcdde77a78f58f2416c62fc53b97d",
         "min_version": "3.8",

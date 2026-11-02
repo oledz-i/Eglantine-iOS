@@ -165,6 +165,10 @@ if (NOT YUZU_USE_BUNDLED_SDL3)
     AddJsonPackage(sdl3)
 else()
     message(STATUS "Using bundled SDL3")
+    if (IOS)
+        # The prebuilt package's shim looks up macOS frameworks; ForceFeedback has no iOS version.
+        set(ForceFeedback_LIBRARY "-framework CoreFoundation" CACHE STRING "" FORCE)
+    endif()
     AddJsonPackage(sdl3-ci)
 
     # copy sdl java sources for consumption by Gradle
@@ -435,7 +439,13 @@ if (YUZU_CRASH_DUMPS AND NOT TARGET libbreakpad_client)
     endif()
 endif()
 
-if (APPLE)
+if (IOS)
+    # The app embeds the dynamic framework and dlopens it from its Frameworks folder.
+    AddJsonPackage(moltenvk-ios)
+    set(MOLTENVK_FRAMEWORK
+        "${MoltenVK-iOS_SOURCE_DIR}/MoltenVK/dynamic/MoltenVK.xcframework/ios-arm64/MoltenVK.framework"
+        CACHE STRING "" FORCE)
+elseif (APPLE)
     # moltenvk
     if (NOT YUZU_USE_BUNDLED_MOLTENVK)
         find_library(MOLTENVK_LIBRARY MoltenVK)

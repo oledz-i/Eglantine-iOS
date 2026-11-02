@@ -1,0 +1,155 @@
+name: ios
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - ios
+    paths-ignore:
+      - "**.md"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    name: iOS IPA
+    runs-on: macos-15
+    timeout-minutes: 300
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 4000M
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install host tools
+        env:
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: brew install ninja glslang ccache cmake
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ios-ccache-${{ github.sha }}
+          restore-keys: ios-ccache-
+
+      - name: Restore CPM cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/cpm
+          key: ios-cpm-${{ hashFiles('cpmfile.json', '**/cpmfile.json') }}
+          restore-keys: ios-cpm-
+
+      - name: Configure
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p ci-logs
+          cmake -S . -B build/ios -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_SYSTEM_PROCESSOR=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJC_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache \
+            "-DGLSLANGVALIDATOR=$(brew --prefix glslang)/bin/glslangValidator" \
+            -DVulkanHeaders_FORCE_BUNDLED=ON \
+            -DVulkanUtilityLibraries_FORCE_BUNDLED=ON \
+            -DEGLANTINE_IOS_BUILD=${{ github.run_number }} \
+            2>&1 | tee ci-logs/configure.log
+
+      - name: Build
+        shell: bash
+        run: |
+          set -o pipefail
+          # 7 GB runners: more jobs than cores runs out of memory on the big translation units.
+          cmake --build build/ios --target yuzu-cmd -- -j3 -k 0 2>&1 | tee ci-logs/build.log
+
+      - name: Package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$(find build/ios -name 'Eglantine.app' -type d -maxdepth 3 | head -1)"
+          echo "app bundle: $app"
+          ls -la "$app" "$app/Frameworks"
+          xcrun strip -S "$app/Eglantine"
+          # Ad-hoc signature carrying the entitlements; sideloading tools re-sign with their own
+          # certificate and keep these where the account allows it.
+          codesign --force --sign - --timestamp=none "$app/Frameworks/MoltenVK.framework"
+          codesign --force --sign - --timestamp=none \
+            --entitlements src/ios/Eglantine.entitlements "$app"
+          codesign -d --entitlements - "$app" || true
+          rm -rf Payload && mkdir Payload
+          cp -R "$app" Payload/
+          zip -qry Eglantine.ipa Payload
+          ls -la Eglantine.ipa
+          shasum -a 256 Eglantine.ipa | tee ci-logs/ipa.sha256
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eglantine-ios-${{ github.run_number }}
+          path: Eglantine.ipa
+          if-no-files-found: error
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="ios-build-${{ github.run_number }}"
+          notes="Unsigned iOS build from ${GITHUB_SHA::10}. Sideload it (SideStore, AltStore, Sideloadly, LiveContainer), then launch it through StikDebug to enable JIT."
+          gh release create "$tag" Eglantine.ipa \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Eglantine iOS build ${{ github.run_number }}" --notes "$notes" --prerelease
+
+      # The logs go to a branch so they can be read without access to the Actions API.
+      - name: Push logs
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p ci-logs
+          {
+            echo "run: ${{ github.run_id }} (#${{ github.run_number }})"
+            echo "sha: $GITHUB_SHA"
+            echo "status: ${{ job.status }}"
+            date -u
+          } > ci-logs/summary.txt
+          if [ -f ci-logs/build.log ]; then
+            grep -nE "error:|FAILED:|fatal error|Undefined symbols|ld: " ci-logs/build.log | head -400 > ci-logs/errors.txt || true
+            tail -300 ci-logs/build.log > ci-logs/build-tail.log
+            # Keep the branch small: full build logs are huge.
+            gzip -9 -f ci-logs/build.log
+          fi
+          if [ -f ci-logs/configure.log ]; then
+            tail -400 ci-logs/configure.log > ci-logs/configure-tail.log
+          fi
+          cp -R ci-logs /tmp/ci-logs
+          cd /tmp/ci-logs
+          git init -q
+          git checkout -q -b ios-ci-logs
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -qm "logs for ${GITHUB_SHA::10} (${{ job.status }})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ios-ci-logs

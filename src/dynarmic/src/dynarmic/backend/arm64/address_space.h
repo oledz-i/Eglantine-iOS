@@ -14,6 +14,14 @@
 #include "common/common_types.h"
 #include <oaknut/code_block.hpp>
 #include <oaknut/oaknut.hpp>
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#include <libkern/OSCacheControl.h>
+#endif
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+#define DYNARMIC_IOS_JIT 1
+#include "dynarmic/interface/ios_jit.h"
+#endif
 #include "common/container/unordered_map.h"
 #include "common/container/unordered_set.h"
 
@@ -24,6 +32,35 @@
 #include "dynarmic/ir/location_descriptor.h"
 
 namespace Dynarmic::Backend::Arm64 {
+
+#ifdef DYNARMIC_IOS_JIT
+// Code memory from the process-wide iOS JIT pool: written through an RW alias, run from RX.
+class CodeMemory {
+public:
+    explicit CodeMemory(std::size_t size) : region{IosJit::Allocate(size)} {}
+    ~CodeMemory() { IosJit::Free(region); }
+    CodeMemory(const CodeMemory&) = delete;
+    CodeMemory& operator=(const CodeMemory&) = delete;
+
+    std::uint32_t* wptr() const { return region.wptr; }
+    std::uint32_t* xptr() const { return region.xptr; }
+    std::size_t size() const { return region.size; }
+    void protect() {}
+    void unprotect() {}
+    void invalidate(std::uint32_t* mem, std::size_t size) { sys_icache_invalidate(mem, size); }
+    void invalidate_all() { invalidate(region.xptr, region.size); }
+
+private:
+    IosJit::Region region;
+};
+#else
+class CodeMemory : public oaknut::CodeBlock {
+public:
+    using oaknut::CodeBlock::CodeBlock;
+    std::uint32_t* wptr() const { return ptr(); }
+    std::uint32_t* xptr() const { return ptr(); }
+};
+#endif
 
 class AddressSpace {
 public:
@@ -70,8 +107,8 @@ protected:
     FakeCall FastmemCallback(u64 host_pc);
 
     IR::Block ir_block;
-    const std::size_t code_cache_size;
-    oaknut::CodeBlock mem;
+    std::size_t code_cache_size;
+    CodeMemory mem;
     oaknut::CodeGenerator code;
 
     // A IR::LocationDescriptor will have one current CodePtr.
