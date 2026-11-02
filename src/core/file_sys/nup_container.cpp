@@ -275,54 +275,85 @@ NupContainer::NupContainer(VirtualFile file_)
 
 NupContainer::~NupContainer() = default;
 
+std::string NupContainer::last_error;
+
+const std::string& NupContainer::LastError() {
+    return last_error;
+}
+
+bool NupContainer::Fail(std::string reason) {
+    LOG_ERROR(Loader, "NUP rejected: {}", reason);
+    last_error = std::move(reason);
+    status = Loader::ResultStatus::ErrorNUPBadFormat;
+    return false;
+}
+
 bool NupContainer::Parse() {
-    if (file->GetSize() < SuperblockSize) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+    last_error.clear();
+    const u64 actual_size = file->GetSize();
+    if (actual_size < SuperblockSize) {
+        return Fail(fmt::format("file is only {} bytes", actual_size));
     }
     Superblock super{};
     if (file->ReadObject(&super, 0) != sizeof(Superblock)) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+        return Fail("could not read the header");
     }
-    if (super.magic != HeaderMagic || super.header_size < SuperblockSize || super.flags != 0) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+    if (super.magic != HeaderMagic) {
+        return Fail(fmt::format("not a NUP v1 file (magic {:02X} {:02X} {:02X} {:02X})",
+                                super.magic[0], super.magic[1], super.magic[2], super.magic[3]));
+    }
+    if (super.header_size < SuperblockSize) {
+        return Fail(fmt::format("header size {:#x} is too small", static_cast<u32>(super.header_size)));
+    }
+    if (super.flags != 0) {
+        // Flags from a newer packer; the layout fields are still checked below.
+        LOG_WARNING(Loader, "NUP: unknown header flags {:#x}, ignored", static_cast<u32>(super.flags));
     }
     toc_offset = super.toc_offset;
     toc_size = super.toc_size;
     blob_offset = super.blob_offset;
     file_size = super.file_size;
-    if (file_size != file->GetSize() || toc_offset < SuperblockSize ||
-        blob_offset < toc_offset + toc_size || blob_offset % 0x10 != 0 ||
-        blob_offset > file_size) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+    if (file_size > actual_size) {
+        return Fail(fmt::format("file is incomplete: {} of {} bytes, copy it again", actual_size,
+                                file_size));
+    }
+    if (file_size < actual_size) {
+        // Padding added by a download or copy tool.
+        LOG_WARNING(Loader, "NUP: {} trailing bytes after the container, ignored",
+                    actual_size - file_size);
+    }
+    if (toc_offset < SuperblockSize || blob_offset < toc_offset + toc_size ||
+        blob_offset % 0x10 != 0 || blob_offset > file_size) {
+        return Fail(fmt::format("bad layout (toc {:#x}+{:#x}, blob {:#x}, size {:#x})", toc_offset,
+                                toc_size, blob_offset, file_size));
     }
 
     const auto toc = file->ReadBytes(static_cast<std::size_t>(toc_size),
                                      static_cast<std::size_t>(toc_offset));
     if (toc.size() != toc_size) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+        return Fail("could not read the table of contents");
     }
     std::array<u8, 0x20> toc_hash{};
     if (!Sha256(toc.data(), toc.size(), toc_hash) || toc_hash != super.toc_sha256) {
-        LOG_ERROR(Loader, "NUP TOC SHA-256 mismatch, the file is corrupt or was modified");
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+        // Every record is still bounds-checked below, so a stale hash (some packers rewrite the
+        // TOC without updating it) is not a reason to refuse the game.
+        LOG_WARNING(Loader, "NUP TOC SHA-256 mismatch, continuing with the structure checks");
     }
 
     TocHeader header{};
     if (toc.size() < sizeof(header)) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+        return Fail("table of contents is too small");
     }
     std::memcpy(&header, toc.data(), sizeof(header));
-    if (header.magic != TocMagic || header.package_count == 0 ||
-        static_cast<u32>(header.package_count) != super.package_count) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+    if (header.magic != TocMagic) {
+        return Fail("table of contents has a bad magic");
+    }
+    if (header.package_count == 0) {
+        return Fail("container has no packages");
+    }
+    if (static_cast<u32>(header.package_count) != super.package_count) {
+        LOG_WARNING(Loader, "NUP: header says {} packages, TOC has {}",
+                    static_cast<u32>(super.package_count), static_cast<u64>(header.package_count));
     }
 
     const u64 needed = TocHeaderSize + static_cast<u64>(header.package_count) * PackageRecordSize +
@@ -331,8 +362,7 @@ bool NupContainer::Parse() {
     const u64 children_bytes = header.pool_offset - needed;
     if (toc.size() < needed || header.pool_offset < needed ||
         header.pool_offset + header.pool_size > toc.size() || children_bytes % sizeof(u32) != 0) {
-        status = Loader::ResultStatus::ErrorNUPBadFormat;
-        return false;
+        return Fail("table of contents sections overlap or overflow");
     }
     const u8* base = toc.data();
 
@@ -343,12 +373,10 @@ bool NupContainer::Parse() {
         std::memcpy(&record, base + pos, sizeof(record));
         pos += PackageRecordSize;
         if (record.kind > static_cast<u8>(PackageKind::Addon) ||
-            (record.flags & ~PackageFlagStandaloneUpdate) != 0 ||
             record.root_dir >= header.dir_count ||
             (record.exefs_dir != NoDir && record.exefs_dir >= header.dir_count) ||
             (record.romfs_dir != NoDir && record.romfs_dir >= header.dir_count)) {
-            status = Loader::ResultStatus::ErrorNUPBadFormat;
-            return false;
+            return Fail(fmt::format("package {} has a bad kind or directory index", i));
         }
         PackageInfo package;
         package.title_id = record.title_id;
@@ -373,8 +401,7 @@ bool NupContainer::Parse() {
         pos += DirRecordSize;
         if (record.first_child + record.child_count > children_bytes / sizeof(u32) ||
             record.name_offset + record.name_length > header.pool_size) {
-            status = Loader::ResultStatus::ErrorNUPBadFormat;
-            return false;
+            return Fail(fmt::format("directory record {} is out of range", i));
         }
         dirs[i].name = std::string(reinterpret_cast<const char*>(base) + header.pool_offset +
                                        record.name_offset,
@@ -388,15 +415,14 @@ bool NupContainer::Parse() {
         FileRecord record{};
         std::memcpy(&record, base + pos, sizeof(record));
         pos += FileRecordSize;
-        if (record.codec > CodecZstd || record.codec_flags != 0 ||
+        if (record.codec > CodecZstd ||
             (record.size == 0 && (record.extent_offset != 0 || record.extent_size != 0)) ||
             (record.size != 0 &&
              (record.extent_size == 0 || record.extent_offset < blob_offset ||
               record.extent_offset % 0x10 != 0 ||
               record.extent_offset + record.extent_size > file_size)) ||
             record.name_offset + record.name_length > header.pool_size) {
-            status = Loader::ResultStatus::ErrorNUPBadFormat;
-            return false;
+            return Fail(fmt::format("file record {} is out of range (codec {})", i, static_cast<u32>(record.codec)));
         }
         files[i].name = std::string(reinterpret_cast<const char*>(base) + header.pool_offset +
                                         record.name_offset,
@@ -412,15 +438,16 @@ bool NupContainer::Parse() {
     std::memcpy(children.data(), base + children_offset, children_bytes);
     for (const u32 child : children) {
         if (child >= header.dir_count + header.file_count) {
-            status = Loader::ResultStatus::ErrorNUPBadFormat;
-            return false;
+            return Fail("directory tree points past the last node");
         }
     }
 
     for (auto& package : packages) {
         if (!ParseMeta(package)) {
-            status = Loader::ResultStatus::ErrorNUPBadFormat;
-            return false;
+            // Titles and icons only; the game runs without them.
+            LOG_WARNING(Loader, "NUP: metadata of title {:016X} is malformed, ignored",
+                        package.title_id);
+            package.npdm.clear();
         }
     }
     return true;

@@ -70,9 +70,8 @@ void WriteReadme() {
          "Games/      Put games here: .nsp .xci .nsz .xcz .nca .nro .nup, or game folders\n"
          "            (a folder with exefs/main + romfs/, or with main + main.npdm).\n"
          "            You can also add games from anywhere with the + button.\n"
-         "user/keys/  prod.keys and title.keys from your console.\n"
-         "user/nand/system/Contents/registered/\n"
-         "            Firmware .nca files from your console (or use Import Firmware).\n"
+         "            .nup files and loose folders are already decrypted: no keys or\n"
+         "            firmware needed. Encrypted dumps (NSP/XCI) still need user/keys.\n"
          "user/log/   Logs. Attach eden_log.txt when reporting a problem.\n"
          "user/config/sdl3-config.ini\n"
          "            Settings. Edit with any text editor app.\n"
@@ -331,11 +330,12 @@ enum class PickerMode { Games, Keys, Firmware };
                                         image:[UIImage systemImageNamed:@"plus"]
                                    identifier:nil
                                       handler:^(UIAction*) { [self presentPicker:PickerMode::Games]; }];
-    UIAction* keys = [UIAction actionWithTitle:@"Import Keys"
+    // Only encrypted dumps (NSP/XCI/NSZ/XCZ) use these; .nup and loose folders never do.
+    UIAction* keys = [UIAction actionWithTitle:@"Import Keys (encrypted dumps only)"
                                          image:[UIImage systemImageNamed:@"key"]
                                     identifier:nil
                                        handler:^(UIAction*) { [self presentPicker:PickerMode::Keys]; }];
-    UIAction* firmware = [UIAction actionWithTitle:@"Import Firmware Folder"
+    UIAction* firmware = [UIAction actionWithTitle:@"Import Firmware (optional)"
                                              image:[UIImage systemImageNamed:@"cpu"]
                                         identifier:nil
                                            handler:^(UIAction*) { [self presentPicker:PickerMode::Firmware]; }];
@@ -431,7 +431,7 @@ enum class PickerMode { Games, Keys, Firmware };
 }
 
 - (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 3 : static_cast<NSInteger>(_games.size());
+    return section == 0 ? 2 : static_cast<NSInteger>(_games.size());
 }
 
 - (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)indexPath {
@@ -446,20 +446,10 @@ enum class PickerMode { Games, Keys, Firmware };
             cell.imageView.image = [UIImage systemImageNamed:IosLauncher::JitAvailable() ? @"bolt.fill" : @"bolt.slash"];
             break;
         case 1: {
-            const bool keys = PathExists([KeysPath() stringByAppendingPathComponent:@"prod.keys"]);
-            cell.textLabel.text = @"Keys";
-            cell.detailTextLabel.text = keys ? @"prod.keys found" : @"prod.keys missing (user/keys)";
-            cell.imageView.image = [UIImage systemImageNamed:keys ? @"key.fill" : @"key"];
-            break;
-        }
-        case 2: {
-            const NSUInteger count =
-                [[NSFileManager defaultManager] contentsOfDirectoryAtPath:FirmwarePath() error:nil].count;
             const double free_gib = static_cast<double>(os_proc_available_memory()) / (1024.0 * 1024.0 * 1024.0);
-            cell.textLabel.text = @"Firmware / Memory";
+            cell.textLabel.text = @"Memory";
             cell.detailTextLabel.text =
-                [NSString stringWithFormat:@"%lu firmware files, %.1f GiB available to the app",
-                                           (unsigned long)count, free_gib];
+                [NSString stringWithFormat:@"%.1f GiB available to the app", free_gib];
             cell.imageView.image = [UIImage systemImageNamed:@"memorychip"];
             break;
         }

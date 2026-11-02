@@ -151,6 +151,15 @@ private:
 
     bool Parse();
     bool ParseMeta(PackageInfo& package);
+    bool Fail(std::string reason);
+
+    static std::string last_error;
+
+public:
+    /// Why the last container failed to parse, for error messages.
+    static const std::string& LastError();
+
+private:
     void BuildDirTree(u32 dir_index, VectorVfsDirectory& out);
     VirtualDir BuildPackageDir(u32 dir_index);
     std::vector<u8> ReadExtentRaw(const FileNode& node) const;

@@ -38,6 +38,7 @@
 #include "core/core_timing.h"
 #include "core/cpu_manager.h"
 #include "core/crypto/key_manager.h"
+#include "core/file_sys/nup_container.h"
 #include "core/file_sys/nup_writer.h"
 #include "core/file_sys/registered_cache.h"
 #include "core/file_sys/vfs/vfs_real.h"
@@ -444,10 +445,14 @@ extern "C" SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     default:
         const u16 loader_id = u16(Core::SystemResultStatus::ErrorLoader);
         const u16 error_id = u16(load_result) - loader_id;
+        std::string detail;
+        if (!FileSys::NupContainer::LastError().empty()) {
+            detail = "\n\nNUP: " + FileSys::NupContainer::LastError();
+        }
         return FailStartup(fmt::format(
-            "While attempting to load the ROM requested, an error occurred. Check that your keys "
-            "and firmware are installed.\n\nError Code: {:04X}-{:04X}\nError Description: {}",
-            loader_id, error_id, Loader::ResultStatus(error_id)));
+            "The game couldn't be loaded.\n\nError {:04X}-{:04X}: {}{}\n\nDetails are in "
+            "user/log/eden_log.txt.",
+            loader_id, error_id, Loader::GetResultStatusString(Loader::ResultStatus(error_id)), detail));
     }
 
     if (lp.use_multiplayer) {
