@@ -126,6 +126,9 @@ public:
     VirtualDir GetRomFSDir(std::size_t package_index);
 
     /// Stream-hashes every member file against its stored SHA-256.
+    /// Diagnostics: logs the package/tree summary and SHA-256 checks the small files.
+    void LogDiagnostics() const;
+
     Loader::ResultStatus VerifyIntegrity(
         std::function<bool(std::size_t, std::size_t)> progress_callback) const;
 

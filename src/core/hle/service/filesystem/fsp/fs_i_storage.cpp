@@ -6,7 +6,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <thread>
+#include <fmt/ranges.h>
+#include "common/logging.h"
+#include "core/file_sys/romfs.h"
 
 #include "core/file_sys/errors.h"
 #include "core/hle/service/cmif_serialization.h"
@@ -44,7 +48,15 @@ Result IStorage::Read(
                                               1'000'000'000 / ReadBytesPerSecond};
 
     // Read the data from the Storage backend
-    backend->Read(out_bytes.data(), length, offset);
+    const std::size_t read = backend->Read(out_bytes.data(), length, offset);
+
+    static const bool trace = std::getenv("EDEN_NX2_IPC_TRACE") != nullptr;
+    if (trace) {
+        const std::size_t shown = std::min<std::size_t>(read, 16);
+        LOG_INFO(Service_FS, "IStorage::Read {:#x}+{:#x} -> {:#x} bytes [{}] {:02X}", offset, length,
+                 read, FileSys::DescribeRomFSOffset(static_cast<u64>(offset), static_cast<u64>(length)),
+                 fmt::join(out_bytes.data(), out_bytes.data() + shown, " "));
+    }
 
     R_SUCCEED();
 }

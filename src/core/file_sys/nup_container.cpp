@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
+#include <fmt/ranges.h>
 #include <list>
 #include <map>
 #include <unordered_map>
@@ -779,6 +780,55 @@ VirtualDir NupContainer::MergeShadowDirs(const VirtualDir& base, const VirtualDi
 std::vector<u8> NupContainer::ReadExtentRaw(const FileNode& node) const {
     return file->ReadBytes(static_cast<std::size_t>(node.extent_size),
                            static_cast<std::size_t>(node.extent_offset));
+}
+
+void NupContainer::LogDiagnostics() const {
+    for (std::size_t i = 0; i < packages.size(); ++i) {
+        const auto& p = packages[i];
+        LOG_INFO(Loader, "NUP package {}: title {:016X} version {} kind {} standalone {} exefs {} romfs {}",
+                 i, p.title_id, p.version, static_cast<u32>(p.kind), p.standalone_update,
+                 p.exefs_dir, p.romfs_dir);
+    }
+    // Every file up to 32 MiB (the ones a game reads first: configs, archives' headers).
+    constexpr u64 Limit = 32ULL << 20;
+    std::size_t checked = 0, bad = 0, skipped = 0, compressed = 0;
+    u64 bytes = 0;
+    for (std::size_t i = 0; i < files.size(); ++i) {
+        const FileNode& node = files[i];
+        if (node.codec != CodecRaw) {
+            ++compressed;
+        }
+        if (node.size == 0 || node.size > Limit) {
+            ++skipped;
+            continue;
+        }
+        std::vector<u8> content;
+        if (node.codec == CodecRaw) {
+            content = file->ReadBytes(static_cast<std::size_t>(node.size),
+                                      static_cast<std::size_t>(node.extent_offset));
+        } else {
+            NupVfsFile view(file, node.extent_offset, node.extent_size, node.size, node.name,
+                            cache, i);
+            content = view.ReadAllBytes();
+        }
+        ++checked;
+        bytes += node.size;
+        std::array<u8, 0x20> hash{};
+        if (content.size() != node.size || !Sha256(content.data(), content.size(), hash) ||
+            hash != node.sha256) {
+            ++bad;
+            if (bad <= 40) {
+                LOG_ERROR(Loader,
+                          "NUP check: {} BAD (size {:#x}, read {:#x}, codec {}, extent {:#x}+{:#x}, "
+                          "first bytes {:02X})",
+                          node.name, node.size, content.size(), static_cast<u32>(node.codec),
+                          node.extent_offset, node.extent_size,
+                          fmt::join(content.begin(), content.begin() + std::min<std::size_t>(content.size(), 16), " "));
+            }
+        }
+    }
+    LOG_INFO(Loader, "NUP check: {} files, {} compressed, {} checked ({} MiB), {} bad, {} skipped",
+             files.size(), compressed, checked, bytes >> 20, bad, skipped);
 }
 
 Loader::ResultStatus NupContainer::VerifyIntegrity(

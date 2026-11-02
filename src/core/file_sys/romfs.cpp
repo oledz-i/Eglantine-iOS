@@ -4,7 +4,10 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <memory>
+#include <mutex>
+#include "common/logging.h"
 
 #include "common/assert.h"
 #include "common/common_types.h"
@@ -165,6 +168,53 @@ VirtualFile CreateRomFS(VirtualDir dir, VirtualDir ext) {
 
     RomFSBuildContext ctx{dir, ext};
     return ConcatenatedVfsFile::MakeConcatenatedFile(0, dir->GetName(), ctx.Build());
+}
+
+namespace {
+struct TrackedEntry {
+    u64 offset;
+    u64 size;
+    std::string name;
+};
+std::mutex tracked_mutex;
+std::vector<TrackedEntry> tracked_layout;
+} // namespace
+
+VirtualFile CreateTrackedRomFS(VirtualDir dir) {
+    if (dir == nullptr)
+        return nullptr;
+    RomFSBuildContext ctx{dir, nullptr};
+    auto layout = ctx.Build();
+    {
+        std::scoped_lock lock{tracked_mutex};
+        tracked_layout.clear();
+        tracked_layout.reserve(layout.size());
+        for (const auto& [offset, file] : layout) {
+            tracked_layout.push_back({offset, file ? file->GetSize() : 0,
+                                      file ? file->GetName() : std::string{"?"}});
+        }
+        std::sort(tracked_layout.begin(), tracked_layout.end(),
+                  [](const auto& a, const auto& b) { return a.offset < b.offset; });
+        LOG_INFO(Loader, "RomFS diagnostics: {} pieces", tracked_layout.size());
+    }
+    return ConcatenatedVfsFile::MakeConcatenatedFile(0, dir->GetName(), std::move(layout));
+}
+
+std::string DescribeRomFSOffset(u64 offset, u64 length) {
+    std::scoped_lock lock{tracked_mutex};
+    if (tracked_layout.empty())
+        return "untracked";
+    std::string out;
+    auto it = std::upper_bound(tracked_layout.begin(), tracked_layout.end(), offset,
+                               [](u64 value, const TrackedEntry& e) { return value < e.offset; });
+    if (it != tracked_layout.begin())
+        --it;
+    for (int n = 0; it != tracked_layout.end() && it->offset < offset + std::max<u64>(length, 1) && n < 4;
+         ++it, ++n) {
+        out += fmt::format("{}{}(+{:#x}, size {:#x})", out.empty() ? "" : ", ", it->name,
+                           offset > it->offset ? offset - it->offset : 0, it->size);
+    }
+    return out.empty() ? "past the end" : out;
 }
 
 } // namespace FileSys

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <cstdlib>
+#include <mutex>
 #include "core/loader/nup.h"
 
 #include <algorithm>
@@ -215,7 +217,15 @@ ResultStatus AppLoader_NUP::ReadRomFS(FileSys::VirtualFile& out_file) {
     if (merged == nullptr) {
         return ResultStatus::ErrorNoRomFS;
     }
-    out_file = FileSys::CreateRomFS(merged);
+    static const bool diagnose = std::getenv("EDEN_NX2_IPC_TRACE") != nullptr ||
+                                 std::getenv("EDEN_NX2_NUP_CHECK") != nullptr;
+    if (diagnose) {
+        static std::once_flag checked;
+        std::call_once(checked, [this] { nup->LogDiagnostics(); });
+        out_file = FileSys::CreateTrackedRomFS(merged);
+    } else {
+        out_file = FileSys::CreateRomFS(merged);
+    }
     if (out_file == nullptr) {
         return ResultStatus::ErrorNoRomFS;
     }
