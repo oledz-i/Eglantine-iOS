@@ -410,28 +410,68 @@ bool NupContainer::Parse() {
         dirs[i].child_count = record.child_count;
     }
 
+    // Other packers differ from Eden's writer in small ways: extents stored relative to the blob
+    // region, unaligned raw data, offsets left on empty files. Accept those as long as every
+    // extent lands inside the file.
+    std::vector<FileRecord> records(header.file_count);
+    for (u64 i = 0; i < header.file_count; ++i) {
+        std::memcpy(&records[i], base + pos, sizeof(FileRecord));
+        pos += FileRecordSize;
+        if (records[i].name_offset + records[i].name_length > header.pool_size) {
+            return Fail(fmt::format("file record {} has a name outside the string pool", i));
+        }
+        if (records[i].codec > CodecZstd) {
+            return Fail(fmt::format("file record {} uses unknown codec {}", i,
+                                    static_cast<u32>(records[i].codec)));
+        }
+    }
+    const auto fits = [&](const FileRecord& record, u64 bias) {
+        const u64 offset = record.extent_offset + bias;
+        return record.extent_size != 0 && offset >= blob_offset && offset <= file_size &&
+               record.extent_size <= file_size - offset;
+    };
+    u64 bias = 0;
+    for (const u64 candidate : {u64{0}, blob_offset}) {
+        bias = candidate;
+        const bool all_fit = std::all_of(records.begin(), records.end(), [&](const FileRecord& r) {
+            return r.size == 0 || fits(r, candidate);
+        });
+        if (all_fit) {
+            break;
+        }
+        if (candidate == blob_offset) {
+            for (u64 i = 0; i < records.size(); ++i) {
+                const auto& r = records[i];
+                if (r.size != 0 && !fits(r, 0) && !fits(r, blob_offset)) {
+                    return Fail(fmt::format(
+                        "file record {} points outside the file (size {:#x}, extent {:#x}+{:#x}, "
+                        "blob {:#x}, file {:#x})",
+                        i, static_cast<u64>(r.size), static_cast<u64>(r.extent_offset),
+                        static_cast<u64>(r.extent_size), blob_offset, file_size));
+                }
+            }
+            return Fail("file records mix absolute and blob-relative offsets");
+        }
+    }
+    if (bias != 0) {
+        LOG_INFO(Loader, "NUP: extents are relative to the blob region");
+    }
+
     files.resize(header.file_count);
     for (u64 i = 0; i < header.file_count; ++i) {
-        FileRecord record{};
-        std::memcpy(&record, base + pos, sizeof(record));
-        pos += FileRecordSize;
-        if (record.codec > CodecZstd ||
-            (record.size == 0 && (record.extent_offset != 0 || record.extent_size != 0)) ||
-            (record.size != 0 &&
-             (record.extent_size == 0 || record.extent_offset < blob_offset ||
-              record.extent_offset % 0x10 != 0 ||
-              record.extent_offset + record.extent_size > file_size)) ||
-            record.name_offset + record.name_length > header.pool_size) {
-            return Fail(fmt::format("file record {} is out of range (codec {})", i, static_cast<u32>(record.codec)));
-        }
+        const auto& record = records[i];
         files[i].name = std::string(reinterpret_cast<const char*>(base) + header.pool_offset +
                                         record.name_offset,
                                     record.name_length);
         files[i].size = record.size;
         files[i].sha256 = record.sha256;
-        files[i].extent_offset = record.extent_offset;
-        files[i].extent_size = record.extent_size;
-        files[i].codec = record.codec;
+        files[i].codec = record.size != 0 ? record.codec : CodecRaw;
+        files[i].extent_offset = record.size != 0 ? record.extent_offset + bias : 0;
+        files[i].extent_size = record.size != 0 ? static_cast<u64>(record.extent_size) : 0;
+        if (files[i].codec == CodecRaw && files[i].extent_size < files[i].size) {
+            return Fail(fmt::format("file record {} stores {:#x} raw bytes for a {:#x} byte file",
+                                    i, files[i].extent_size, files[i].size));
+        }
     }
 
     children.resize(children_bytes / sizeof(u32));
@@ -564,8 +604,9 @@ VirtualFile NupContainer::OpenFile(std::size_t file_index) {
         return std::make_shared<VectorVfsFile>(std::vector<u8>{}, node.name);
     }
     if (node.codec == CodecRaw) {
+        // node.size, not the extent: some packers pad raw extents.
         return std::make_shared<OffsetVfsFile>(
-            file, static_cast<std::size_t>(node.extent_size),
+            file, static_cast<std::size_t>(node.size),
             static_cast<std::size_t>(node.extent_offset), node.name);
     }
     return std::make_shared<NupVfsFile>(file, node.extent_offset, node.extent_size, node.size,
