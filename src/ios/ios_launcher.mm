@@ -14,8 +14,18 @@
 #include <string>
 #include <vector>
 
+#include <cmath>
+#include <functional>
+#include <memory>
+#include <optional>
+
+#include "common/settings.h"
+#include "core/file_sys/nup_container.h"
+#include "core/file_sys/vfs/vfs_real.h"
+#include "core/loader/loader.h"
 #include "dynarmic/interface/ios_jit.h"
 #include "ios/ios_launcher.h"
+#include "ios/ios_overlay.h"
 
 namespace {
 
@@ -311,21 +321,486 @@ NSUInteger CopyKeys(NSArray<NSURL*>* files) {
 
 }  // namespace
 
-enum class PickerMode { Games, Keys, Firmware };
+// ---- Game metadata and artwork ----
 
-@interface EGLibraryController : UITableViewController <UIDocumentPickerDelegate>
-@property(nonatomic, copy) void (^onPick)(NSString* path);
+namespace {
+
+struct GameMeta {
+    NSString* __strong title = nil;
+    NSString* __strong detail = nil;
+    UIImage* __strong art = nil;
+    bool real_art = false;
+};
+
+NSString* StringFromBytes(const u8* data, size_t size) {
+    size_t length = 0;
+    while (length < size && data[length] != 0) {
+        ++length;
+    }
+    if (length == 0) {
+        return nil;
+    }
+    return [[NSString alloc] initWithBytes:data length:length encoding:NSUTF8StringEncoding];
+}
+
+// control.nacp: 16 language entries of {name[0x200], publisher[0x100]}, American English first.
+NSString* TitleFromNacp(NSData* nacp) {
+    if (nacp.length < 0x300) {
+        return nil;
+    }
+    const auto* bytes = static_cast<const u8*>(nacp.bytes);
+    for (size_t language = 0; language < 16 && (language + 1) * 0x300 <= nacp.length; ++language) {
+        if (NSString* name = StringFromBytes(bytes + language * 0x300, 0x200)) {
+            return name;
+        }
+    }
+    return nil;
+}
+
+// Loose dumps keep the control data next to (or above) exefs/: control/control.nacp and
+// control/icon_<Language>.dat (a JPEG).
+void ReadControlFolder(NSString* game_path, GameMeta& meta) {
+    NSFileManager* fm = NSFileManager.defaultManager;
+    NSString* dir = game_path;
+    if ([dir.lastPathComponent isEqualToString:@"exefs"]) {
+        dir = dir.stringByDeletingLastPathComponent;
+    }
+    for (NSString* candidate in @[ [dir stringByAppendingPathComponent:@"control"],
+                                   [dir.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"control"],
+                                   dir ]) {
+        NSArray<NSString*>* files = [fm contentsOfDirectoryAtPath:candidate error:nil];
+        if (files.count == 0) {
+            continue;
+        }
+        if (meta.title == nil) {
+            if (NSData* nacp = [NSData dataWithContentsOfFile:[candidate stringByAppendingPathComponent:@"control.nacp"]]) {
+                meta.title = TitleFromNacp(nacp);
+            }
+        }
+        if (meta.art == nil) {
+            NSString* icon = nil;
+            for (NSString* file in files) {
+                if ([file hasPrefix:@"icon_"] && [file hasSuffix:@".dat"]) {
+                    icon = [file isEqualToString:@"icon_AmericanEnglish.dat"] || icon == nil ? file : icon;
+                }
+            }
+            if (icon != nil) {
+                meta.art = [UIImage imageWithContentsOfFile:[candidate stringByAppendingPathComponent:icon]];
+                meta.real_art = meta.art != nil;
+            }
+        }
+        if (meta.title != nil && meta.art != nil) {
+            return;
+        }
+    }
+}
+
+void ReadNup(NSString* path, GameMeta& meta) {
+    const auto vfs = std::make_shared<FileSys::RealVfsFilesystem>();
+    const auto file = vfs->OpenFile(path.fileSystemRepresentation, FileSys::OpenMode::Read);
+    if (file == nullptr) {
+        return;
+    }
+    FileSys::NupContainer nup{file};
+    if (nup.GetStatus() != Loader::ResultStatus::Success) {
+        return;
+    }
+    const auto& packages = nup.GetPackages();
+    std::optional<size_t> base = nup.FindBasePackage();
+    const auto update = nup.FindBestUpdatePackage();
+    // Updates usually carry the newest name and icon.
+    for (const auto index : {update, base}) {
+        if (!index) {
+            continue;
+        }
+        const auto& package = packages[*index];
+        if (meta.title == nil) {
+            std::string name = package.title_name;
+            for (const auto& [language, localized] : package.localized_titles) {
+                if (name.empty() || language == "AmericanEnglish" || language == "en-US") {
+                    name = localized;
+                }
+            }
+            if (!name.empty()) {
+                meta.title = @(name.c_str());
+            }
+        }
+        if (meta.art == nil && !package.icon.empty()) {
+            NSData* data = [NSData dataWithBytes:package.icon.data() length:package.icon.size()];
+            meta.art = [UIImage imageWithData:data];
+            meta.real_art = meta.art != nil;
+        }
+        if (meta.detail == nil && !package.display_version.empty()) {
+            meta.detail = [NSString stringWithFormat:@"NUP · v%s", package.display_version.c_str()];
+        }
+    }
+}
+
+// Cover for games without an icon: a gradient picked from the title, with its initials.
+UIImage* GeneratedArt(NSString* title) {
+    const NSUInteger hash = title.hash;
+    const CGFloat hue = static_cast<CGFloat>(hash % 360) / 360.0;
+    UIColor* top = [UIColor colorWithHue:hue saturation:0.65 brightness:0.85 alpha:1];
+    UIColor* bottom = [UIColor colorWithHue:fmod(hue + 0.12, 1.0) saturation:0.8 brightness:0.45 alpha:1];
+    NSMutableString* initials = [NSMutableString string];
+    for (NSString* word in [title componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceCharacterSet]) {
+        if (word.length > 0 && initials.length < 2) {
+            [initials appendString:[[word substringToIndex:1] uppercaseString]];
+        }
+    }
+    const CGSize size = CGSizeMake(256, 256);
+    UIGraphicsImageRenderer* renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
+    return [renderer imageWithActions:^(UIGraphicsImageRendererContext* context) {
+        NSArray* colors = @[ (__bridge id)top.CGColor, (__bridge id)bottom.CGColor ];
+        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+        CGGradientRef gradient = CGGradientCreateWithColors(space, (__bridge CFArrayRef)colors, nullptr);
+        CGContextDrawLinearGradient(context.CGContext, gradient, CGPointZero, CGPointMake(size.width, size.height), 0);
+        CGGradientRelease(gradient);
+        CGColorSpaceRelease(space);
+        NSDictionary* attrs = @{
+            NSFontAttributeName : [UIFont systemFontOfSize:104 weight:UIFontWeightHeavy],
+            NSForegroundColorAttributeName : [UIColor colorWithWhite:1 alpha:0.92],
+        };
+        const CGSize text = [initials sizeWithAttributes:attrs];
+        [initials drawAtPoint:CGPointMake((size.width - text.width) / 2, (size.height - text.height) / 2)
+               withAttributes:attrs];
+    }];
+}
+
+GameMeta LoadMeta(const GameEntry& game) {
+    GameMeta meta;
+    NSString* path = @(game.path.c_str());
+    @try {
+        if ([path.pathExtension.lowercaseString isEqualToString:@"nup"]) {
+            ReadNup(path, meta);
+        } else {
+            ReadControlFolder(path, meta);
+        }
+    } @catch (NSException*) {
+    }
+    if (meta.title == nil) {
+        meta.title = @(game.title.c_str());
+    }
+    if (meta.detail == nil) {
+        meta.detail = @(game.detail.c_str());
+    }
+    if (meta.art == nil) {
+        meta.art = GeneratedArt(meta.title);
+    }
+    return meta;
+}
+
+} // namespace
+
+@interface EGGameCell : UICollectionViewCell
+@property(nonatomic, strong) UIImageView* art;
+@property(nonatomic, strong) UILabel* title;
+@property(nonatomic, strong) UILabel* detail;
+@property(nonatomic, copy) NSString* path;
 @end
 
-@implementation EGLibraryController {
-    std::vector<GameEntry> _games;
-    PickerMode _pickerMode;
+@implementation EGGameCell
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if ((self = [super initWithFrame:frame])) {
+        _art = [[UIImageView alloc] init];
+        _art.contentMode = UIViewContentModeScaleAspectFill;
+        _art.clipsToBounds = YES;
+        _art.layer.cornerRadius = 16;
+        _art.layer.cornerCurve = kCACornerCurveContinuous;
+        _art.backgroundColor = UIColor.secondarySystemBackgroundColor;
+        _title = [[UILabel alloc] init];
+        _title.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+        _title.numberOfLines = 2;
+        _detail = [[UILabel alloc] init];
+        _detail.font = [UIFont systemFontOfSize:12];
+        _detail.textColor = UIColor.secondaryLabelColor;
+        for (UIView* view in @[ _art, _title, _detail ]) {
+            view.translatesAutoresizingMaskIntoConstraints = NO;
+            [self.contentView addSubview:view];
+        }
+        [NSLayoutConstraint activateConstraints:@[
+            [_art.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
+            [_art.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
+            [_art.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
+            [_art.heightAnchor constraintEqualToAnchor:_art.widthAnchor],
+            [_title.topAnchor constraintEqualToAnchor:_art.bottomAnchor constant:6],
+            [_title.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:2],
+            [_title.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-2],
+            [_detail.topAnchor constraintEqualToAnchor:_title.bottomAnchor constant:2],
+            [_detail.leadingAnchor constraintEqualToAnchor:_title.leadingAnchor],
+            [_detail.trailingAnchor constraintEqualToAnchor:_title.trailingAnchor],
+        ]];
+    }
+    return self;
+}
+
+@end
+
+// ---- Settings ----
+
+@interface EGSettingsController : UITableViewController
+@property(nonatomic, copy) void (^onChange)(void);
+@end
+
+namespace {
+
+struct SettingRow {
+    NSString* __strong title = nil;
+    NSString* __strong footer = nil;
+    NSArray<NSString*>* __strong segments = nil;  // segmented control when set
+    NSInteger (^get_index)(void) = nil;
+    void (^set_index)(NSInteger) = nil;
+    BOOL (^get_bool)(void) = nil;  // switch when set
+    void (^set_bool)(BOOL) = nil;
+    float (^get_float)(void) = nil;  // slider when set
+    void (^set_float)(float) = nil;
+    NSString* __strong value = nil;  // read-only text otherwise
+};
+
+struct SettingSection {
+    NSString* __strong title = nil;
+    NSString* __strong footer = nil;
+    std::vector<SettingRow> rows;
+};
+
+template <typename E>
+NSInteger IndexOf(const std::vector<E>& values, E value) {
+    const auto it = std::find(values.begin(), values.end(), value);
+    return it == values.end() ? 0 : static_cast<NSInteger>(it - values.begin());
+}
+
+} // namespace
+
+@implementation EGSettingsController {
+    std::vector<SettingSection> _sections;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.title = @"Settings";
+    self.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                                                      target:self
+                                                      action:@selector(close)];
+    [self buildSections];
+}
+
+- (void)close {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)changed {
+    if (self.onChange != nil) {
+        self.onChange();
+    }
+}
+
+- (void)buildSections {
+    using namespace Settings;
+    static const std::vector<ResolutionSetup> resolutions{ResolutionSetup::Res1_2X, ResolutionSetup::Res3_4X,
+                                                         ResolutionSetup::Res1X, ResolutionSetup::Res3_2X,
+                                                         ResolutionSetup::Res2X};
+    static const std::vector<AntiAliasing> aa{AntiAliasing::None, AntiAliasing::Fxaa, AntiAliasing::Smaa};
+    static const std::vector<CpuAccuracy> cpu{CpuAccuracy::Auto, CpuAccuracy::Accurate, CpuAccuracy::Unsafe};
+
+    SettingSection graphics{@"Graphics", @"Lower resolution and Handheld mode are the biggest speed-ups on a phone. "
+                                          @"Async shaders trade brief missing effects for less stutter."};
+    graphics.rows.push_back({.title = @"Resolution",
+                             .segments = @[ @"0.5×", @"0.75×", @"1×", @"1.5×", @"2×" ],
+                             .get_index = ^NSInteger { return IndexOf(resolutions, values.resolution_setup.GetValue()); },
+                             .set_index = ^(NSInteger i) { values.resolution_setup.SetValue(resolutions[i]); }});
+    graphics.rows.push_back({.title = @"Console mode",
+                             .segments = @[ @"Handheld", @"Docked" ],
+                             .get_index = ^NSInteger { return values.use_docked_mode.GetValue() == ConsoleMode::Docked ? 1 : 0; },
+                             .set_index = ^(NSInteger i) { values.use_docked_mode.SetValue(i == 1 ? ConsoleMode::Docked : ConsoleMode::Handheld); }});
+    graphics.rows.push_back({.title = @"GPU accuracy",
+                             .segments = @[ @"Low (faster)", @"High" ],
+                             .get_index = ^NSInteger { return values.gpu_accuracy.GetValue() == GpuAccuracy::High ? 1 : 0; },
+                             .set_index = ^(NSInteger i) { values.gpu_accuracy.SetValue(i == 1 ? GpuAccuracy::High : GpuAccuracy::Low); }});
+    graphics.rows.push_back({.title = @"Anti-aliasing",
+                             .segments = @[ @"Off", @"FXAA", @"SMAA" ],
+                             .get_index = ^NSInteger { return IndexOf(aa, values.anti_aliasing.GetValue()); },
+                             .set_index = ^(NSInteger i) { values.anti_aliasing.SetValue(aa[i]); }});
+    graphics.rows.push_back({.title = @"Asynchronous shaders",
+                             .get_bool = ^BOOL { return values.use_asynchronous_shaders.GetValue(); },
+                             .set_bool = ^(BOOL on) { values.use_asynchronous_shaders.SetValue(on); }});
+    graphics.rows.push_back({.title = @"Disk shader cache",
+                             .get_bool = ^BOOL { return values.use_disk_shader_cache.GetValue(); },
+                             .set_bool = ^(BOOL on) { values.use_disk_shader_cache.SetValue(on); }});
+
+    SettingSection system{@"System", @"Unsafe CPU accuracy is faster and works for most games."};
+    system.rows.push_back({.title = @"CPU accuracy",
+                           .segments = @[ @"Auto", @"Accurate", @"Unsafe" ],
+                           .get_index = ^NSInteger { return IndexOf(cpu, values.cpu_accuracy.GetValue()); },
+                           .set_index = ^(NSInteger i) { values.cpu_accuracy.SetValue(cpu[i]); }});
+    system.rows.push_back({.title = @"Multicore CPU",
+                           .get_bool = ^BOOL { return values.use_multi_core.GetValue(); },
+                           .set_bool = ^(BOOL on) { values.use_multi_core.SetValue(on); }});
+    system.rows.push_back({.title = @"Limit speed to 100%",
+                           .get_bool = ^BOOL { return values.use_speed_limit.GetValue(); },
+                           .set_bool = ^(BOOL on) { values.use_speed_limit.SetValue(on); }});
+
+    SettingSection audio{@"Audio", nil};
+    audio.rows.push_back({.title = @"Mute",
+                          .get_bool = ^BOOL { return values.audio_muted.GetValue(); },
+                          .set_bool = ^(BOOL on) { values.audio_muted.SetValue(on); }});
+    audio.rows.push_back({.title = @"Volume",
+                          .get_float = ^float { return values.volume.GetValue() / 100.0f; },
+                          .set_float = ^(float v) { values.volume.SetValue(static_cast<u8>(std::lround(v * 100))); }});
+
+    SettingSection controls{@"Touch controls", @"The on-screen controller hides itself while a game controller is connected. "
+                                               @"Tap ≡ in-game for the menu."};
+    controls.rows.push_back({.title = @"Show touch controls",
+                             .get_bool = ^BOOL { return IosOverlay::Enabled(); },
+                             .set_bool = ^(BOOL on) { IosOverlay::SetEnabled(on); }});
+    controls.rows.push_back({.title = @"Opacity",
+                             .get_float = ^float { return IosOverlay::Opacity(); },
+                             .set_float = ^(float v) { IosOverlay::SetOpacity(std::max(0.15f, v)); }});
+    controls.rows.push_back({.title = @"Haptic feedback",
+                             .get_bool = ^BOOL { return IosOverlay::Haptics(); },
+                             .set_bool = ^(BOOL on) { IosOverlay::SetHaptics(on); }});
+    controls.rows.push_back({.title = @"Show FPS",
+                             .get_bool = ^BOOL { return IosOverlay::ShowFps(); },
+                             .set_bool = ^(BOOL on) { IosOverlay::SetShowFps(on); }});
+
+    SettingSection about{@"About", nil};
+    NSDictionary* info = NSBundle.mainBundle.infoDictionary;
+    about.rows.push_back({.title = @"Version",
+                          .value = [NSString stringWithFormat:@"%@ (build %@)", info[@"CFBundleShortVersionString"],
+                                                              info[@"CFBundleVersion"]]});
+    about.rows.push_back({.title = @"JIT", .value = @(IosLauncher::JitStatus().c_str())});
+    about.rows.push_back({.title = @"Memory available",
+                          .value = [NSString stringWithFormat:@"%.1f GiB",
+                                                              os_proc_available_memory() / (1024.0 * 1024.0 * 1024.0)]});
+
+    _sections = {graphics, system, audio, controls, about};
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
+    return static_cast<NSInteger>(_sections.size());
+}
+
+- (NSString*)tableView:(UITableView*)tableView titleForHeaderInSection:(NSInteger)section {
+    return _sections[section].title;
+}
+
+- (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
+    return _sections[section].footer;
+}
+
+- (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
+    return static_cast<NSInteger>(_sections[section].rows.size());
+}
+
+- (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)indexPath {
+    const SettingRow& row = _sections[indexPath.section].rows[indexPath.row];
+    UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.textLabel.text = row.title;
+    if (row.segments != nil) {
+        UISegmentedControl* control = [[UISegmentedControl alloc] initWithItems:row.segments];
+        control.selectedSegmentIndex = row.get_index();
+        void (^set)(NSInteger) = row.set_index;
+        __weak EGSettingsController* weak_self = self;
+        [control addAction:[UIAction actionWithHandler:^(UIAction* action) {
+                     set(((UISegmentedControl*)action.sender).selectedSegmentIndex);
+                     [weak_self changed];
+                 }]
+          forControlEvents:UIControlEventValueChanged];
+        [control sizeToFit];
+        const CGFloat max_width = tableView.bounds.size.width * 0.62;
+        if (control.frame.size.width > max_width) {
+            control.frame = CGRectMake(0, 0, max_width, control.frame.size.height);
+            control.apportionsSegmentWidthsByContent = YES;
+        }
+        cell.accessoryView = control;
+    } else if (row.get_bool != nil) {
+        UISwitch* toggle = [[UISwitch alloc] init];
+        toggle.on = row.get_bool();
+        void (^set)(BOOL) = row.set_bool;
+        __weak EGSettingsController* weak_self = self;
+        [toggle addAction:[UIAction actionWithHandler:^(UIAction* action) {
+                    set(((UISwitch*)action.sender).isOn);
+                    [weak_self changed];
+                }]
+         forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = toggle;
+    } else if (row.get_float != nil) {
+        UISlider* slider = [[UISlider alloc] initWithFrame:CGRectMake(0, 0, 180, 30)];
+        slider.value = row.get_float();
+        void (^set)(float) = row.set_float;
+        __weak EGSettingsController* weak_self = self;
+        [slider addAction:[UIAction actionWithHandler:^(UIAction* action) {
+                    set(((UISlider*)action.sender).value);
+                }]
+         forControlEvents:UIControlEventValueChanged];
+        [slider addAction:[UIAction actionWithHandler:^(UIAction*) { [weak_self changed]; }]
+         forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+        cell.accessoryView = slider;
+    } else {
+        cell.detailTextLabel.text = row.value;
+        cell.detailTextLabel.numberOfLines = 2;
+    }
+    return cell;
+}
+
+@end
+
+// ---- Library ----
+
+enum class PickerMode { Games, Keys, Firmware };
+
+@interface EGLibraryController : UICollectionViewController <UIDocumentPickerDelegate>
+@property(nonatomic, copy) void (^onPick)(NSString* path);
+@property(nonatomic, copy) void (^onSettingsChanged)(void);
+@end
+
+@implementation EGLibraryController {
+    std::vector<GameEntry> _games;
+    NSCache<NSString*, id>* _meta_cache;
+    PickerMode _pickerMode;
+    UILabel* _empty;
+}
+
++ (UICollectionViewLayout*)gridLayout {
+    return [[UICollectionViewCompositionalLayout alloc]
+        initWithSectionProvider:^NSCollectionLayoutSection*(NSInteger, id<NSCollectionLayoutEnvironment> env) {
+            const CGFloat width = env.container.effectiveContentSize.width;
+            const NSInteger columns = std::max<NSInteger>(2, static_cast<NSInteger>(width / 150));
+            NSCollectionLayoutSize* item_size =
+                [NSCollectionLayoutSize sizeWithWidthDimension:[NSCollectionLayoutDimension fractionalWidthDimension:1.0 / columns]
+                                               heightDimension:[NSCollectionLayoutDimension estimatedDimension:width / columns + 56]];
+            NSCollectionLayoutItem* item = [NSCollectionLayoutItem itemWithLayoutSize:item_size];
+            item.contentInsets = NSDirectionalEdgeInsetsMake(8, 8, 8, 8);
+            NSCollectionLayoutSize* group_size =
+                [NSCollectionLayoutSize sizeWithWidthDimension:[NSCollectionLayoutDimension fractionalWidthDimension:1.0]
+                                               heightDimension:[NSCollectionLayoutDimension estimatedDimension:width / columns + 56]];
+            NSCollectionLayoutGroup* group = [NSCollectionLayoutGroup horizontalGroupWithLayoutSize:group_size
+                                                                                     repeatingSubitem:item
+                                                                                                count:columns];
+            NSCollectionLayoutSection* section = [NSCollectionLayoutSection sectionWithGroup:group];
+            section.contentInsets = NSDirectionalEdgeInsetsMake(8, 12, 24, 12);
+            return section;
+        }];
+}
+
+- (instancetype)init {
+    return [super initWithCollectionViewLayout:[EGLibraryController gridLayout]];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    _meta_cache = [[NSCache alloc] init];
     self.title = @"Eglantine";
-    [self.tableView registerClass:UITableViewCell.class forCellReuseIdentifier:@"status"];
+    self.navigationController.navigationBar.prefersLargeTitles = YES;
+    self.collectionView.backgroundColor = UIColor.systemBackgroundColor;
+    self.collectionView.alwaysBounceVertical = YES;
+    [self.collectionView registerClass:EGGameCell.class forCellWithReuseIdentifier:@"game"];
+    UIRefreshControl* refresh = [[UIRefreshControl alloc] init];
+    [refresh addTarget:self action:@selector(pulledToRefresh:) forControlEvents:UIControlEventValueChanged];
+    self.collectionView.refreshControl = refresh;
+
     UIAction* add = [UIAction actionWithTitle:@"Add Games or Folder"
                                         image:[UIImage systemImageNamed:@"plus"]
                                    identifier:nil
@@ -347,19 +822,92 @@ enum class PickerMode { Games, Keys, Firmware };
                                             [self reload];
                                         }];
     reset.attributes = UIMenuElementAttributesDestructive;
-    self.navigationItem.rightBarButtonItem =
-        [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis.circle"]
+    UIBarButtonItem* more =
+        [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"plus.circle"]
                                           menu:[UIMenu menuWithChildren:@[ add, keys, firmware, reset ]]];
-    self.navigationItem.leftBarButtonItem =
-        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
-                                                      target:self
-                                                      action:@selector(reload)];
+    UIBarButtonItem* settings =
+        [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"gearshape"]
+                                         style:UIBarButtonItemStylePlain
+                                        target:self
+                                        action:@selector(showSettings)];
+    self.navigationItem.rightBarButtonItems = @[ more, settings ];
+    self.navigationItem.prompt = IosLauncher::JitAvailable()
+                                     ? nil
+                                     : @"JIT is off: relaunch through StikDebug to play";
+
+    _empty = [[UILabel alloc] init];
+    _empty.text = @"No games yet.\nCopy them into Eglantine › Games in the Files app,\nor tap ⊕ to add a folder.";
+    _empty.numberOfLines = 0;
+    _empty.textAlignment = NSTextAlignmentCenter;
+    _empty.textColor = UIColor.secondaryLabelColor;
+    self.collectionView.backgroundView = _empty;
     [self reload];
+}
+
+- (void)pulledToRefresh:(UIRefreshControl*)sender {
+    [_meta_cache removeAllObjects];
+    [self reload];
+    [sender endRefreshing];
 }
 
 - (void)reload {
     _games = ScanLibrary();
-    [self.tableView reloadData];
+    _empty.hidden = !_games.empty();
+    [self.collectionView reloadData];
+}
+
+- (void)showSettings {
+    EGSettingsController* settings = [[EGSettingsController alloc] initWithStyle:UITableViewStyleInsetGrouped];
+    settings.onChange = self.onSettingsChanged;
+    UINavigationController* nav = [[UINavigationController alloc] initWithRootViewController:settings];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (NSInteger)collectionView:(UICollectionView*)collectionView numberOfItemsInSection:(NSInteger)section {
+    return static_cast<NSInteger>(_games.size());
+}
+
+- (void)applyMeta:(NSDictionary*)meta toCell:(EGGameCell*)cell {
+    cell.title.text = meta[@"title"];
+    cell.detail.text = meta[@"detail"];
+    cell.art.image = meta[@"art"];
+}
+
+- (UICollectionViewCell*)collectionView:(UICollectionView*)collectionView
+                 cellForItemAtIndexPath:(NSIndexPath*)indexPath {
+    EGGameCell* cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"game" forIndexPath:indexPath];
+    const GameEntry game = _games[indexPath.item];
+    NSString* path = @(game.path.c_str());
+    cell.path = path;
+    if (NSDictionary* cached = [_meta_cache objectForKey:path]) {
+        [self applyMeta:cached toCell:cell];
+        return cell;
+    }
+    cell.title.text = @(game.title.c_str());
+    cell.detail.text = @(game.detail.c_str());
+    cell.art.image = nil;
+    __weak EGLibraryController* weak_self = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        const GameMeta meta = LoadMeta(game);
+        NSDictionary* result = @{@"title" : meta.title, @"detail" : meta.detail, @"art" : meta.art};
+        dispatch_async(dispatch_get_main_queue(), ^{
+            EGLibraryController* strong = weak_self;
+            if (strong == nil) {
+                return;
+            }
+            [strong->_meta_cache setObject:result forKey:path];
+            if ([cell.path isEqualToString:path]) {
+                [strong applyMeta:result toCell:cell];
+            }
+        });
+    });
+    return cell;
+}
+
+- (void)collectionView:(UICollectionView*)collectionView didSelectItemAtIndexPath:(NSIndexPath*)indexPath {
+    if (self.onPick != nil) {
+        self.onPick(@(_games[indexPath.item].path.c_str()));
+    }
 }
 
 - (void)presentPicker:(PickerMode)mode {
@@ -392,16 +940,12 @@ enum class PickerMode { Games, Keys, Firmware };
         }
         [self reload];
         break;
-    case PickerMode::Keys: {
-        const NSUInteger count = CopyKeys(urls);
-        [self showMessage:[NSString stringWithFormat:@"Copied %lu key file(s).", (unsigned long)count]];
-        [self.tableView reloadData];
+    case PickerMode::Keys:
+        [self showMessage:[NSString stringWithFormat:@"Copied %lu key file(s).", (unsigned long)CopyKeys(urls)]];
         break;
-    }
     case PickerMode::Firmware: {
         const NSUInteger count = urls.firstObject != nil ? CopyFirmware(urls.firstObject) : 0;
         [self showMessage:[NSString stringWithFormat:@"Copied %lu firmware file(s).", (unsigned long)count]];
-        [self.tableView reloadData];
         break;
     }
     }
@@ -413,63 +957,6 @@ enum class PickerMode { Games, Keys, Firmware };
                                                             preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
-}
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
-    return 2;
-}
-
-- (NSString*)tableView:(UITableView*)tableView titleForHeaderInSection:(NSInteger)section {
-    return section == 0 ? @"Status" : @"Games";
-}
-
-- (NSString*)tableView:(UITableView*)tableView titleForFooterInSection:(NSInteger)section {
-    if (section == 1 && _games.empty()) {
-        return @"No games found. Copy games into Eglantine/Games in the Files app, or add a location with the menu.";
-    }
-    return nil;
-}
-
-- (NSInteger)tableView:(UITableView*)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 2 : static_cast<NSInteger>(_games.size());
-}
-
-- (UITableViewCell*)tableView:(UITableView*)tableView cellForRowAtIndexPath:(NSIndexPath*)indexPath {
-    UITableViewCell* cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
-                                                   reuseIdentifier:nil];
-    if (indexPath.section == 0) {
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
-        switch (indexPath.row) {
-        case 0:
-            cell.textLabel.text = @"JIT";
-            cell.detailTextLabel.text = @(IosLauncher::JitStatus().c_str());
-            cell.imageView.image = [UIImage systemImageNamed:IosLauncher::JitAvailable() ? @"bolt.fill" : @"bolt.slash"];
-            break;
-        case 1: {
-            const double free_gib = static_cast<double>(os_proc_available_memory()) / (1024.0 * 1024.0 * 1024.0);
-            cell.textLabel.text = @"Memory";
-            cell.detailTextLabel.text =
-                [NSString stringWithFormat:@"%.1f GiB available to the app", free_gib];
-            cell.imageView.image = [UIImage systemImageNamed:@"memorychip"];
-            break;
-        }
-        }
-        return cell;
-    }
-    const GameEntry& game = _games[indexPath.row];
-    cell.textLabel.text = @(game.title.c_str());
-    cell.detailTextLabel.text = @(game.detail.c_str());
-    cell.imageView.image = [UIImage systemImageNamed:@"gamecontroller"];
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    return cell;
-}
-
-- (void)tableView:(UITableView*)tableView didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section != 1 || self.onPick == nil) {
-        return;
-    }
-    self.onPick(@(_games[indexPath.row].path.c_str()));
 }
 
 @end
@@ -515,7 +1002,7 @@ bool IsFirstLaunch() {
     return g_first_launch;
 }
 
-std::string PickGame() {
+std::string PickGame(std::function<void()> save_settings) {
     __block bool done = false;
     __block std::string result;
 
@@ -526,10 +1013,16 @@ std::string PickGame() {
             break;
         }
     }
-    EGLibraryController* library = [[EGLibraryController alloc] initWithStyle:UITableViewStyleInsetGrouped];
+    EGLibraryController* library = [[EGLibraryController alloc] init];
     library.onPick = ^(NSString* path) {
         result = path.UTF8String;
         done = true;
+    };
+    auto save = std::make_shared<std::function<void()>>(std::move(save_settings));
+    library.onSettingsChanged = ^{
+        if (*save) {
+            (*save)();
+        }
     };
     window.rootViewController = [[UINavigationController alloc] initWithRootViewController:library];
     window.windowLevel = UIWindowLevelNormal + 1;

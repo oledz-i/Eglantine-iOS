@@ -75,8 +75,11 @@ if (IOS)
     target_sources(yuzu-cmd PRIVATE
         ../ios/ios_launcher.h
         ../ios/ios_launcher.mm
+        ../ios/ios_overlay.h
+        ../ios/ios_overlay.mm
     )
-    set_source_files_properties(../ios/ios_launcher.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    set_source_files_properties(../ios/ios_launcher.mm ../ios/ios_overlay.mm
+        PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(yuzu-cmd PRIVATE dynarmic)
 
     if (NOT DEFINED EGLANTINE_IOS_VERSION)

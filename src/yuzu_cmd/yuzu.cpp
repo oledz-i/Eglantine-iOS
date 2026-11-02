@@ -63,7 +63,9 @@
 #ifdef EDEN_IOS
 #include "common/param_package.h"
 #include "hid_core/hid_core.h"
+#include "input_common/drivers/virtual_gamepad.h"
 #include "ios/ios_launcher.h"
+#include "ios/ios_overlay.h"
 #endif
 
 #if defined(__unix__) || defined(__APPLE__)
@@ -374,7 +376,7 @@ extern "C" SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
 #ifdef EDEN_IOS
     if (lp.filepath.empty()) {
-        lp.filepath = IosLauncher::PickGame();
+        lp.filepath = IosLauncher::PickGame([&config] { config.SaveAllValues(); });
     }
     LOG_INFO(Frontend, "iOS: {}", IosLauncher::JitStatus());
     if (!IosLauncher::JitAvailable()) {
@@ -425,6 +427,7 @@ extern "C" SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
 #ifdef EDEN_IOS
     IosAutoMapGamepad(state);
+    IosOverlay::Attach(state->input_subsystem.GetVirtualGamepad());
 #endif
 
     Service::AM::FrontendAppletParameters load_parameters{
