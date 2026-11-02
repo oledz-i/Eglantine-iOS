@@ -404,7 +404,13 @@ std::vector<const char*> ExtensionListForVulkan(
 }
 
 constexpr std::array<char, 8> STATIC_CACHE_MAGIC_NUMBER{'e', 'd', 'e', 'n', 's', 't', 'p', 'c'};
+#ifdef EDEN_IOS
+// 2: caches from iOS builds before the subgroup barrier rewrite hold Metal source that no longer
+// compiles.
+constexpr u32 STATIC_CACHE_VERSION = 2;
+#else
 constexpr u32 STATIC_CACHE_VERSION = 1;
+#endif
 
 std::filesystem::path StaticPipelineCacheFilename() {
     const auto shader_dir = Common::FS::GetEdenPath(Common::FS::EdenPath::ShaderDir);
@@ -857,7 +863,15 @@ void Device::LoadStaticPipelineCache() {
         create(0, nullptr);
         return;
     }
-    create(data.size(), data.empty() ? nullptr : data.data());
+    // A driver may reject its own cache: MoltenVK recompiles the cached Metal source, and a
+    // shader that no longer compiles fails the whole cache. Start over without it.
+    try {
+        create(data.size(), data.empty() ? nullptr : data.data());
+    } catch (const vk::Exception& e) {
+        LOG_WARNING(Render_Vulkan, "Static pipeline cache rejected ({}), deleting it", e.what());
+        Common::FS::RemoveFile(filename);
+        create(0, nullptr);
+    }
 }
 
 void Device::SaveStaticPipelineCache() const {

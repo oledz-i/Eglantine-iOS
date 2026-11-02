@@ -1242,7 +1242,16 @@ vk::PipelineCache PipelineCache::LoadVulkanPipelineCache(const std::filesystem::
         LOG_INFO(Render_Vulkan,
                  "Loaded Vulkan driver pipeline cache: ", Common::FS::PathToUTF8String(filename));
 
-        return create_pipeline_cache(cache_size, cache_data.data());
+        try {
+            return create_pipeline_cache(cache_size, cache_data.data());
+        } catch (const vk::Exception& e) {
+            // MoltenVK recompiles cached Metal source here; one bad entry fails everything.
+            LOG_WARNING(Render_Vulkan, "Driver rejected the pipeline cache ({}), deleting it",
+                        e.what());
+            file.close();
+            Common::FS::RemoveFile(filename);
+            return create_pipeline_cache(0, nullptr);
+        }
 
     } catch (const std::ios_base::failure& e) {
         LOG_ERROR(Common_Filesystem, "{}", e.what());

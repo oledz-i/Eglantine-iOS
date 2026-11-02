@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <unordered_map>
 #include <vector>
 
 #include "common/common_types.h"
@@ -813,8 +814,98 @@ QueryPool Device::CreateQueryPool(const VkQueryPoolCreateInfo& ci) const {
     return QueryPool(object, handle, *dld);
 }
 
+#ifdef __APPLE__
+namespace {
+
+// For MSL 3.2, MoltenVK's SPIRV-Cross turns a Subgroup-scope OpMemoryBarrier into
+// atomic_thread_fence(..., thread_scope_subgroup), which the iOS Metal compiler doesn't know ("did
+// you mean thread_scope_simdgroup?"), failing the whole pipeline. Workgroup scope orders at least as
+// much and compiles everywhere. Control barriers are left alone: they become simdgroup_barrier, and
+// widening their scope would make a divergent warp wait for the whole workgroup.
+std::vector<u32> WidenSubgroupBarriers(const u32* words, size_t count) {
+    constexpr u32 OpConstant = 43;
+    constexpr u32 OpMemoryBarrier = 225;
+    constexpr u32 ScopeWorkgroup = 2;
+    constexpr u32 ScopeSubgroup = 3;
+    constexpr size_t HeaderWords = 5;
+    if (count <= HeaderWords || words[0] != 0x07230203) {
+        return {};
+    }
+    struct Constant {
+        u32 type;
+        u32 value;
+        size_t position;
+    };
+    std::unordered_map<u32, Constant> constants;
+    std::vector<size_t> scope_operands;
+    for (size_t pos = HeaderWords; pos < count;) {
+        const u32 opcode = words[pos] & 0xFFFF;
+        const u32 length = words[pos] >> 16;
+        if (length == 0 || pos + length > count) {
+            return {};
+        }
+        if (opcode == OpConstant && length == 4) {
+            constants.emplace(words[pos + 2], Constant{words[pos + 1], words[pos + 3], pos});
+        } else if (opcode == OpMemoryBarrier && length == 3) {
+            scope_operands.push_back(pos + 1);
+        }
+        pos += length;
+    }
+    std::vector<size_t> to_patch;
+    u32 subgroup_type = 0;
+    size_t subgroup_position = 0;
+    for (const size_t operand : scope_operands) {
+        const auto it = constants.find(words[operand]);
+        if (it != constants.end() && it->second.value == ScopeSubgroup) {
+            to_patch.push_back(operand);
+            subgroup_type = it->second.type;
+            subgroup_position = it->second.position;
+        }
+    }
+    if (to_patch.empty()) {
+        return {};
+    }
+    std::vector<u32> out(words, words + count);
+    u32 workgroup_id = 0;
+    for (const auto& [id, constant] : constants) {
+        if (constant.type == subgroup_type && constant.value == ScopeWorkgroup) {
+            workgroup_id = id;
+            break;
+        }
+    }
+    if (workgroup_id == 0) {
+        // Declare the constant right after the Subgroup one, so it sits among the constants.
+        workgroup_id = out[3]++;
+        const size_t insert_at = subgroup_position + 4;
+        out.insert(out.begin() + static_cast<std::ptrdiff_t>(insert_at),
+                   {(4u << 16) | OpConstant, subgroup_type, workgroup_id, ScopeWorkgroup});
+        for (size_t& operand : to_patch) {
+            if (operand >= insert_at) {
+                operand += 4;
+            }
+        }
+    }
+    for (const size_t operand : to_patch) {
+        out[operand] = workgroup_id;
+    }
+    return out;
+}
+
+} // Anonymous namespace
+#endif
+
 ShaderModule Device::CreateShaderModule(const VkShaderModuleCreateInfo& ci) const {
     VkShaderModule object;
+#ifdef __APPLE__
+    const std::vector<u32> widened = WidenSubgroupBarriers(ci.pCode, ci.codeSize / sizeof(u32));
+    if (!widened.empty()) {
+        VkShaderModuleCreateInfo patched = ci;
+        patched.codeSize = widened.size() * sizeof(u32);
+        patched.pCode = widened.data();
+        Check(dld->vkCreateShaderModule(handle, &patched, nullptr, &object));
+        return ShaderModule(object, handle, *dld);
+    }
+#endif
     Check(dld->vkCreateShaderModule(handle, &ci, nullptr, &object));
     return ShaderModule(object, handle, *dld);
 }
