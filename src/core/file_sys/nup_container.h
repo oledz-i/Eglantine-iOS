@@ -149,7 +149,18 @@ private:
         u8 codec{};
     };
 
+    struct RecordCounts {
+        u64 package_count;
+        u64 dir_count;
+        u64 file_count;
+        u64 pool_offset;
+        u64 pool_size;
+        u64 children_offset;
+        u64 children_bytes;
+    };
+
     bool Parse();
+    bool ParseRecords(const u8* base, const RecordCounts& counts, bool legacy);
     bool ParseMeta(PackageInfo& package);
     bool Fail(std::string reason);
 

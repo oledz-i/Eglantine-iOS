@@ -366,88 +366,158 @@ bool NupContainer::Parse() {
     }
     const u8* base = toc.data();
 
+    // Containers packed before the aligned record layout (upstream b8d2c08) carry the same magic
+    // and version but packed records: size, hash and extent fields sit at other offsets. Try the
+    // current layout first, then the older one.
+    const RecordCounts counts{
+        .package_count = static_cast<u64>(header.package_count),
+        .dir_count = static_cast<u64>(header.dir_count),
+        .file_count = static_cast<u64>(header.file_count),
+        .pool_offset = static_cast<u64>(header.pool_offset),
+        .pool_size = static_cast<u64>(header.pool_size),
+        .children_offset = children_offset,
+        .children_bytes = children_bytes,
+    };
+    if (ParseRecords(base, counts, false)) {
+        return true;
+    }
+    const std::string aligned_error = last_error;
+    if (ParseRecords(base, counts, true)) {
+        LOG_INFO(Loader, "NUP: older packed record layout");
+        last_error.clear();
+        return true;
+    }
+    return Fail(fmt::format("{} / older layout: {}", aligned_error, last_error));
+}
+
+namespace {
+
+template <typename T>
+T ReadField(const u8* record, std::size_t offset) {
+    T value{};
+    std::memcpy(&value, record + offset, sizeof(T));
+    return value;
+}
+
+} // namespace
+
+bool NupContainer::ParseRecords(const u8* base, const RecordCounts& counts, bool legacy) {
+    packages.clear();
+    dirs.clear();
+    files.clear();
+    children.clear();
+
+    // Offsets of the fields that moved between the two layouts.
+    const std::size_t pkg_meta_offset = legacy ? 0x1C : 0x20;
+    const std::size_t pkg_meta_size = legacy ? 0x24 : 0x28;
+    const std::size_t file_size_at = legacy ? 0x0C : 0x08;
+    const std::size_t file_sha_at = legacy ? 0x14 : 0x20;
+    const std::size_t file_extent_offset_at = legacy ? 0x34 : 0x10;
+    const std::size_t file_extent_size_at = legacy ? 0x3C : 0x18;
+    const std::size_t file_codec_at = legacy ? 0x44 : 0x40;
+
     std::size_t pos = TocHeaderSize;
-    packages.reserve(header.package_count);
-    for (u32 i = 0; i < header.package_count; ++i) {
-        PackageRecord record{};
-        std::memcpy(&record, base + pos, sizeof(record));
+    packages.reserve(counts.package_count);
+    for (u64 i = 0; i < counts.package_count; ++i) {
+        const u8* record = base + pos;
         pos += PackageRecordSize;
-        if (record.kind > static_cast<u8>(PackageKind::Addon) ||
-            record.root_dir >= header.dir_count ||
-            (record.exefs_dir != NoDir && record.exefs_dir >= header.dir_count) ||
-            (record.romfs_dir != NoDir && record.romfs_dir >= header.dir_count)) {
+        const u32 root_dir = ReadField<u32>(record, 0x08);
+        const u32 exefs_dir = ReadField<u32>(record, 0x0C);
+        const u32 romfs_dir = ReadField<u32>(record, 0x10);
+        const u8 kind = record[0x18];
+        const u8 flags = record[0x19];
+        if (kind > static_cast<u8>(PackageKind::Addon) || root_dir >= counts.dir_count ||
+            (exefs_dir != NoDir && exefs_dir >= counts.dir_count) ||
+            (romfs_dir != NoDir && romfs_dir >= counts.dir_count)) {
             return Fail(fmt::format("package {} has a bad kind or directory index", i));
         }
         PackageInfo package;
-        package.title_id = record.title_id;
-        package.version = record.version;
-        package.kind = static_cast<PackageKind>(record.kind);
-        package.standalone_update = (record.flags & PackageFlagStandaloneUpdate) != 0;
-        package.root_dir = record.root_dir;
-        package.exefs_dir = record.exefs_dir;
-        package.romfs_dir = record.romfs_dir;
-        if (record.meta_size > 0 && record.meta_offset != 0 &&
-            record.meta_offset + record.meta_size <= file_size) {
-            package.meta_offset = record.meta_offset;
-            package.meta_size = record.meta_size;
+        package.title_id = ReadField<u64>(record, 0x00);
+        package.version = ReadField<u32>(record, 0x14);
+        package.kind = static_cast<PackageKind>(kind);
+        package.standalone_update = (flags & PackageFlagStandaloneUpdate) != 0;
+        package.root_dir = root_dir;
+        package.exefs_dir = exefs_dir;
+        package.romfs_dir = romfs_dir;
+        const u64 meta_offset = ReadField<u64>(record, pkg_meta_offset);
+        const u32 meta_size = ReadField<u32>(record, pkg_meta_size);
+        if (meta_size > 0 && meta_offset != 0 && meta_offset <= file_size &&
+            meta_size <= file_size - meta_offset) {
+            package.meta_offset = meta_offset;
+            package.meta_size = meta_size;
         }
         packages.push_back(std::move(package));
     }
 
-    dirs.resize(header.dir_count);
-    for (u64 i = 0; i < header.dir_count; ++i) {
+    dirs.resize(counts.dir_count);
+    for (u64 i = 0; i < counts.dir_count; ++i) {
         DirRecord record{};
         std::memcpy(&record, base + pos, sizeof(record));
         pos += DirRecordSize;
-        if (record.first_child + record.child_count > children_bytes / sizeof(u32) ||
-            record.name_offset + record.name_length > header.pool_size) {
+        if (static_cast<u64>(record.first_child) + record.child_count > counts.children_bytes / sizeof(u32) ||
+            static_cast<u64>(record.name_offset) + record.name_length > counts.pool_size) {
             return Fail(fmt::format("directory record {} is out of range", i));
         }
-        dirs[i].name = std::string(reinterpret_cast<const char*>(base) + header.pool_offset +
+        dirs[i].name = std::string(reinterpret_cast<const char*>(base) + counts.pool_offset +
                                        record.name_offset,
                                    record.name_length);
         dirs[i].first_child = record.first_child;
         dirs[i].child_count = record.child_count;
     }
 
-    // Other packers differ from Eden's writer in small ways: extents stored relative to the blob
-    // region, unaligned raw data, offsets left on empty files. Accept those as long as every
-    // extent lands inside the file.
-    std::vector<FileRecord> records(header.file_count);
-    for (u64 i = 0; i < header.file_count; ++i) {
-        std::memcpy(&records[i], base + pos, sizeof(FileRecord));
+    // Packers also differ in smaller ways: extents relative to the blob region, unaligned raw
+    // data, offsets left on empty files. Accepted as long as every extent lands inside the file.
+    struct Entry {
+        u32 name_offset;
+        u32 name_length;
+        u64 size;
+        u64 extent_offset;
+        u64 extent_size;
+        std::array<u8, 0x20> sha256;
+        u8 codec;
+    };
+    std::vector<Entry> entries(counts.file_count);
+    for (u64 i = 0; i < counts.file_count; ++i) {
+        const u8* record = base + pos;
         pos += FileRecordSize;
-        if (records[i].name_offset + records[i].name_length > header.pool_size) {
+        Entry& entry = entries[i];
+        entry.name_offset = ReadField<u32>(record, 0x00);
+        entry.name_length = ReadField<u32>(record, 0x04);
+        entry.size = ReadField<u64>(record, file_size_at);
+        entry.extent_offset = ReadField<u64>(record, file_extent_offset_at);
+        entry.extent_size = ReadField<u64>(record, file_extent_size_at);
+        std::memcpy(entry.sha256.data(), record + file_sha_at, entry.sha256.size());
+        entry.codec = record[file_codec_at];
+        if (static_cast<u64>(entry.name_offset) + entry.name_length > counts.pool_size) {
             return Fail(fmt::format("file record {} has a name outside the string pool", i));
         }
-        if (records[i].codec > CodecZstd) {
+        if (entry.codec > CodecZstd) {
             return Fail(fmt::format("file record {} uses unknown codec {}", i,
-                                    static_cast<u32>(records[i].codec)));
+                                    static_cast<u32>(entry.codec)));
         }
     }
-    const auto fits = [&](const FileRecord& record, u64 bias) {
-        const u64 offset = record.extent_offset + bias;
-        return record.extent_size != 0 && offset >= blob_offset && offset <= file_size &&
-               record.extent_size <= file_size - offset;
+    const auto fits = [&](const Entry& entry, u64 bias) {
+        const u64 offset = entry.extent_offset + bias;
+        return entry.extent_size != 0 && offset >= entry.extent_offset && offset >= blob_offset &&
+               offset <= file_size && entry.extent_size <= file_size - offset;
     };
     u64 bias = 0;
     for (const u64 candidate : {u64{0}, blob_offset}) {
         bias = candidate;
-        const bool all_fit = std::all_of(records.begin(), records.end(), [&](const FileRecord& r) {
-            return r.size == 0 || fits(r, candidate);
+        const bool all_fit = std::all_of(entries.begin(), entries.end(), [&](const Entry& e) {
+            return e.size == 0 || fits(e, candidate);
         });
         if (all_fit) {
             break;
         }
         if (candidate == blob_offset) {
-            for (u64 i = 0; i < records.size(); ++i) {
-                const auto& r = records[i];
-                if (r.size != 0 && !fits(r, 0) && !fits(r, blob_offset)) {
+            for (u64 i = 0; i < entries.size(); ++i) {
+                const auto& e = entries[i];
+                if (e.size != 0 && !fits(e, 0) && !fits(e, blob_offset)) {
                     return Fail(fmt::format(
                         "file record {} points outside the file (size {:#x}, extent {:#x}+{:#x}, "
                         "blob {:#x}, file {:#x})",
-                        i, static_cast<u64>(r.size), static_cast<u64>(r.extent_offset),
-                        static_cast<u64>(r.extent_size), blob_offset, file_size));
+                        i, e.size, e.extent_offset, e.extent_size, blob_offset, file_size));
                 }
             }
             return Fail("file records mix absolute and blob-relative offsets");
@@ -457,27 +527,28 @@ bool NupContainer::Parse() {
         LOG_INFO(Loader, "NUP: extents are relative to the blob region");
     }
 
-    files.resize(header.file_count);
-    for (u64 i = 0; i < header.file_count; ++i) {
-        const auto& record = records[i];
-        files[i].name = std::string(reinterpret_cast<const char*>(base) + header.pool_offset +
-                                        record.name_offset,
-                                    record.name_length);
-        files[i].size = record.size;
-        files[i].sha256 = record.sha256;
-        files[i].codec = record.size != 0 ? record.codec : CodecRaw;
-        files[i].extent_offset = record.size != 0 ? record.extent_offset + bias : 0;
-        files[i].extent_size = record.size != 0 ? static_cast<u64>(record.extent_size) : 0;
-        if (files[i].codec == CodecRaw && files[i].extent_size < files[i].size) {
+    files.resize(counts.file_count);
+    for (u64 i = 0; i < counts.file_count; ++i) {
+        const Entry& entry = entries[i];
+        FileNode& node = files[i];
+        node.name = std::string(reinterpret_cast<const char*>(base) + counts.pool_offset +
+                                    entry.name_offset,
+                                entry.name_length);
+        node.size = entry.size;
+        node.sha256 = entry.sha256;
+        node.codec = entry.size != 0 ? entry.codec : CodecRaw;
+        node.extent_offset = entry.size != 0 ? entry.extent_offset + bias : 0;
+        node.extent_size = entry.size != 0 ? entry.extent_size : 0;
+        if (node.codec == CodecRaw && node.extent_size < node.size) {
             return Fail(fmt::format("file record {} stores {:#x} raw bytes for a {:#x} byte file",
-                                    i, files[i].extent_size, files[i].size));
+                                    i, node.extent_size, node.size));
         }
     }
 
-    children.resize(children_bytes / sizeof(u32));
-    std::memcpy(children.data(), base + children_offset, children_bytes);
+    children.resize(counts.children_bytes / sizeof(u32));
+    std::memcpy(children.data(), base + counts.children_offset, counts.children_bytes);
     for (const u32 child : children) {
-        if (child >= header.dir_count + header.file_count) {
+        if (child >= counts.dir_count + counts.file_count) {
             return Fail("directory tree points past the last node");
         }
     }
