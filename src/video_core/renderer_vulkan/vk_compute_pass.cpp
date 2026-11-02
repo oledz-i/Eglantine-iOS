@@ -17,6 +17,7 @@
 #include "common/assert.h"
 #include "common/common_types.h"
 #include "common/logging.h"
+#include "common/scope_exit.h"
 #include "common/div_ceil.h"
 #include "common/vector_math.h"
 #include "video_core/host_shaders/astc_decoder_comp_spv.h"
@@ -305,6 +306,14 @@ ComputePass::ComputePass(const Device& device_, Scheduler& scheduler, Descriptor
         .requiredSubgroupSize = optional_subgroup_size ? *optional_subgroup_size : 32U,
     };
     bool use_setup_size = device.IsExtSubgroupSizeControlSupported() && optional_subgroup_size;
+    // MoltenVK turns a shader that fails to translate to Metal into VK_ERROR_INITIALIZATION_FAILED;
+    // say which helper shader it was.
+    SCOPE_EXIT {
+        if (!pipeline) {
+            LOG_ERROR(Render_Vulkan, "Compute pass pipeline failed ({} words of SPIR-V, first {:#x})",
+                      code.size(), code.size() > 5 ? code[5] : 0U);
+        }
+    };
     pipeline = device.GetLogical().CreateComputePipeline(VkComputePipelineCreateInfo{
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
         .pNext = nullptr,
@@ -545,7 +554,10 @@ QueriesPrefixScanPass::QueriesPrefixScanPass(
           device_, scheduler_, descriptor_pool_, QUERIES_SCAN_DESCRIPTOR_SET_BINDINGS,
           QUERIES_SCAN_DESCRIPTOR_UPDATE_TEMPLATE, QUERIES_SCAN_BANK_INFO,
           COMPUTE_PUSH_CONSTANT_RANGE<sizeof(QueriesPrefixScanPushConstants)>,
-          device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_BASIC_BIT) &&
+          // MoltenVK on iOS reports subgroup shuffles that its Metal translation of this
+          // shader rejects; the no-subgroup version is the safe one there.
+          !device_.IsMoltenVK() &&
+                  device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_BASIC_BIT) &&
                   device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_ARITHMETIC_BIT) &&
                   device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_SHUFFLE_BIT) &&
                   device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT)

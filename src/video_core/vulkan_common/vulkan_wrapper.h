@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <source_location>
 #include <array>
 #include <exception>
 #include <limits>
@@ -131,18 +132,23 @@ private:
     VkResult result;
 };
 
+/// Logs which call failed (MoltenVK reports most of its errors as one generic code), then throws.
+[[noreturn]] void ThrowFailure(VkResult result, const std::source_location& location);
+
 /// Throws a Vulkan exception if result is not success.
-inline void Check(VkResult result) {
+inline void Check(VkResult result,
+                  const std::source_location location = std::source_location::current()) {
     if (result != VK_SUCCESS) {
-        throw Exception(result);
+        ThrowFailure(result, location);
     }
 }
 
 /// Throws a Vulkan exception if result is an error.
 /// @return result
-inline VkResult Filter(VkResult result) {
+inline VkResult Filter(VkResult result,
+                       const std::source_location location = std::source_location::current()) {
     if (result < 0) {
-        throw Exception(result);
+        ThrowFailure(result, location);
     }
     return result;
 }

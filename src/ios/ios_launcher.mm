@@ -72,7 +72,7 @@ void WriteReadme() {
          "            You can also add games from anywhere with the + button.\n"
          "            .nup files and loose folders are already decrypted: no keys or\n"
          "            firmware needed. Encrypted dumps (NSP/XCI) still need user/keys.\n"
-         "user/log/   Logs. Attach eden_log.txt when reporting a problem.\n"
+         "user/log/   Logs. Attach eden_log.txt and console.txt when reporting a problem.\n"
          "user/config/sdl3-config.ini\n"
          "            Settings. Edit with any text editor app.\n"
          "user/jit_mode.txt\n"
@@ -487,6 +487,16 @@ void PrepareEnvironment() {
     // Eden picks "<cwd>/user" as a portable user folder, which puts saves, keys, config and logs
     // in Documents where the Files app can reach them.
     chdir(documents.fileSystemRepresentation);
+
+    // stderr has nowhere to go on a phone. MoltenVK writes its errors there (the Metal compiler
+    // message behind a failed pipeline), as does the JIT setup, so keep them next to Eden's log.
+    NSString* log_dir = [UserPath() stringByAppendingPathComponent:@"log"];
+    MakeDir(log_dir);
+    NSString* console = [log_dir stringByAppendingPathComponent:@"console.txt"];
+    if (freopen(console.fileSystemRepresentation, "w", stderr) != nullptr) {
+        setvbuf(stderr, nullptr, _IONBF, 0);
+    }
+    setenv("MVK_CONFIG_LOG_LEVEL", "2", 0);
 
     ApplyJitOverride();
     Dynarmic::IosJit::Initialize();

@@ -332,6 +332,12 @@ bool Load(VkInstance instance, InstanceDispatch& dld) noexcept {
 #undef X
 }
 
+void ThrowFailure(VkResult result, const std::source_location& location) {
+    LOG_ERROR(Render_Vulkan, "{} from {} ({}:{})", string_VkResult(result), location.function_name(),
+              location.file_name(), location.line());
+    throw Exception(result);
+}
+
 const char* Exception::what() const noexcept {
     return string_VkResult(result);
 }
