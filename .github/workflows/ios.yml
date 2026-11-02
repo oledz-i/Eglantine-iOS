@@ -1,4 +1,5 @@
 name: ios
+# Builds an unsigned Eglantine.ipa and publishes it as a prerelease.
 
 on:
   workflow_dispatch:
