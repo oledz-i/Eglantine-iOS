@@ -14,6 +14,7 @@
 #include <vector>
 #include <optional>
 #include <bit>
+#include "common/memory_pressure.h"
 #include "common/container/unordered_map.h"
 #include <boost/container/small_vector.hpp>
 
@@ -212,6 +213,19 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
 
 template <class P>
 void TextureCache<P>::TickFrame() {
+    if (Common::ConsumeMemoryPressure()) {
+        // Out of memory soon: drop every image not used in the last few frames right now,
+        // whatever the thresholds say.
+        const u64 saved_expected = expected_memory;
+        const u64 saved_critical = critical_memory;
+        expected_memory = 0;
+        critical_memory = 0;
+        const u64 before = total_used_memory;
+        RunGarbageCollector();
+        expected_memory = saved_expected;
+        critical_memory = saved_critical;
+        LOG_WARNING(HW_GPU, "Memory pressure: texture cache collected ({} MiB before)", before >> 20);
+    }
     // Upload buffers grown for one huge image (title 1's 341 MiB terrain layer pools) are freed
     // rather than kept for the rest of the session.
     for (auto* const scratch : {&swizzle_data_buffer, &unswizzle_data_buffer}) {

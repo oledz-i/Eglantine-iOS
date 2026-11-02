@@ -35,6 +35,29 @@ void EmitSpinLockUnlock(oaknut::CodeGenerator& code, oaknut::XReg ptr) {
     code.STLR(WZR, ptr);
 }
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+
+// iOS: only the debugger-prepared JIT pool may hold executable code, so this lock is plain
+// compiled code instead of a runtime-generated stub. Same acquire/release ordering on the same
+// word as the emitted version, so both can guard the same lock.
+void SpinLock::Lock() noexcept {
+    while (__atomic_exchange_n(&storage, 1, __ATOMIC_ACQUIRE) != 0) {
+        while (__atomic_load_n(&storage, __ATOMIC_RELAXED) != 0) {
+            __builtin_arm_yield();
+        }
+    }
+}
+
+void SpinLock::Unlock() noexcept {
+    __atomic_store_n(&storage, 0, __ATOMIC_RELEASE);
+}
+
+#else
+
 namespace {
 
 struct SpinLockImpl {
@@ -82,5 +105,7 @@ void SpinLock::Unlock() noexcept {
     std::call_once(flag, &SpinLockImpl::Initialize, impl);
     impl.unlock(&storage);
 }
+
+#endif
 
 }  // namespace Dynarmic

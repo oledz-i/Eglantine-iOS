@@ -19,6 +19,7 @@
 #include <memory>
 #include <optional>
 
+#include "common/memory_pressure.h"
 #include "common/settings.h"
 #include "core/file_sys/nup_container.h"
 #include "core/file_sys/vfs/vfs_real.h"
@@ -1065,6 +1066,16 @@ void StartMemoryMonitor() {
         for (;;) {
             const unsigned long long footprint = FootprintMiB();
             g_last_footprint_mib.store(footprint);
+            // Ask the caches to shed memory before jetsam steps in; at most every 2 s.
+            static int cooldown = 0;
+            const unsigned long long available = os_proc_available_memory() >> 20;
+            if (cooldown > 0) {
+                --cooldown;
+            } else if (available < 700) {
+                Common::SignalMemoryPressure();
+                std::fprintf(stderr, "[mem] low memory (%llu MiB left), collecting caches\n", available);
+                cooldown = 8;
+            }
             if (footprint > reported + 128 || footprint + 512 < reported) {
                 std::fprintf(stderr, "[mem] footprint %llu MiB, available %llu MiB\n", footprint,
                              static_cast<unsigned long long>(os_proc_available_memory() >> 20));
@@ -1114,6 +1125,7 @@ void PrepareEnvironment() {
                     object:nil
                      queue:nil
                 usingBlock:^(NSNotification*) {
+                    Common::SignalMemoryPressure();
                     std::fprintf(stderr, "[ios] memory warning, %llu MiB available\n",
                                  static_cast<unsigned long long>(os_proc_available_memory() >> 20));
                 }];

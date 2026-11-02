@@ -79,6 +79,7 @@ add_library(
     math_util.h
     memory_detect.cpp
     memory_detect.h
+    memory_pressure.h
     multi_level_page_table.cpp
     multi_level_page_table.h
     overflow.h
