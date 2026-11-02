@@ -932,7 +932,14 @@ struct Values {
 
     // Miscellaneous
     Setting<std::string> log_filter{linkage, "*:Info", "log_filter", Category::Miscellaneous};
-    Setting<bool> log_flush_line{linkage, false, "flush_line", Category::Miscellaneous, Specialization::Default, true, true};
+    // iOS: the app is often killed outright (jetsam), so unflushed lines would be lost.
+    Setting<bool> log_flush_line{linkage,
+#ifdef EDEN_IOS
+                                 true,
+#else
+                                 false,
+#endif
+                                 "flush_line", Category::Miscellaneous, Specialization::Default, true, true};
     Setting<bool> censor_username{linkage, true, "censor_username", Category::Miscellaneous};
     Setting<bool> first_launch{linkage, true, "first_launch", Category::Miscellaneous};
 

@@ -961,6 +961,124 @@ enum class PickerMode { Games, Keys, Firmware };
 
 @end
 
+
+// ---- Crash and memory diagnostics (everything goes to stderr = user/log/console.txt) ----
+
+#include <execinfo.h>
+#include <mach/mach.h>
+#include <signal.h>
+#include <pthread.h>
+#include <atomic>
+
+namespace {
+
+std::atomic<unsigned long long> g_last_footprint_mib{0};
+
+unsigned long long FootprintMiB() {
+    task_vm_info_data_t info{};
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>(&info), &count) != KERN_SUCCESS) {
+        return 0;
+    }
+    return info.phys_footprint >> 20;
+}
+
+void WriteAll(const char* text) {
+    size_t length = 0;
+    while (text[length] != 0) {
+        ++length;
+    }
+    (void)write(STDERR_FILENO, text, length);
+}
+
+void WriteHex(const char* label, unsigned long long value) {
+    char buffer[64];
+    char* p = buffer;
+    while (*label != 0) {
+        *p++ = *label++;
+    }
+    *p++ = '0';
+    *p++ = 'x';
+    char digits[17];
+    int n = 0;
+    do {
+        const int d = static_cast<int>(value & 0xF);
+        digits[n++] = static_cast<char>(d < 10 ? '0' + d : 'a' + d - 10);
+        value >>= 4;
+    } while (value != 0 && n < 16);
+    while (n > 0) {
+        *p++ = digits[--n];
+    }
+    *p++ = '\n';
+    *p = 0;
+    WriteAll(buffer);
+}
+
+void CrashHandler(int signal, siginfo_t* info, void* context) {
+    WriteAll("\n==== Eglantine crashed ====\n");
+    const char* name = signal == SIGSEGV ? "SIGSEGV" : signal == SIGBUS ? "SIGBUS" : signal == SIGILL ? "SIGILL"
+                     : signal == SIGFPE ? "SIGFPE" : signal == SIGABRT ? "SIGABRT" : signal == SIGTRAP ? "SIGTRAP" : "signal";
+    WriteAll("signal: ");
+    WriteAll(name);
+    WriteAll("\n");
+    WriteHex("fault address: ", reinterpret_cast<unsigned long long>(info != nullptr ? info->si_addr : nullptr));
+    if (context != nullptr) {
+        const auto* uc = static_cast<const ucontext_t*>(context);
+        WriteHex("pc: ", uc->uc_mcontext->__ss.__pc);
+        WriteHex("lr: ", uc->uc_mcontext->__ss.__lr);
+        WriteHex("sp: ", uc->uc_mcontext->__ss.__sp);
+    }
+    WriteHex("footprint MiB: ", g_last_footprint_mib.load());
+    void* frames[64];
+    const int count = backtrace(frames, 64);
+    backtrace_symbols_fd(frames, count, STDERR_FILENO);
+    WriteAll("============================\n");
+    // Let the system finish the crash (and write its own report).
+    struct sigaction def{};
+    def.sa_handler = SIG_DFL;
+    sigaction(signal, &def, nullptr);
+    raise(signal);
+}
+
+void InstallCrashHandlers() {
+    // Separate stack: a stack overflow must still be able to report.
+    static char alt_stack[64 * 1024];
+    stack_t ss{};
+    ss.ss_sp = alt_stack;
+    ss.ss_size = sizeof(alt_stack);
+    sigaltstack(&ss, nullptr);
+    struct sigaction action{};
+    action.sa_sigaction = CrashHandler;
+    action.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&action.sa_mask);
+    for (const int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP}) {
+        sigaction(sig, &action, nullptr);
+    }
+}
+
+// Jetsam kills without a signal, so the last footprint lines are the only trace it leaves.
+void StartMemoryMonitor() {
+    pthread_t thread;
+    pthread_create(&thread, nullptr, [](void*) -> void* {
+        pthread_setname_np("eglantine-mem");
+        unsigned long long reported = 0;
+        for (;;) {
+            const unsigned long long footprint = FootprintMiB();
+            g_last_footprint_mib.store(footprint);
+            if (footprint > reported + 128 || footprint + 512 < reported) {
+                std::fprintf(stderr, "[mem] footprint %llu MiB, available %llu MiB\n", footprint,
+                             static_cast<unsigned long long>(os_proc_available_memory() >> 20));
+                reported = footprint;
+            }
+            usleep(250 * 1000);
+        }
+        return nullptr;
+    }, nullptr);
+    pthread_detach(thread);
+}
+
+} // namespace
+
 namespace IosLauncher {
 
 void PrepareEnvironment() {
@@ -987,6 +1105,9 @@ void PrepareEnvironment() {
 
     ApplyJitOverride();
     Dynarmic::IosJit::Initialize();
+    // After the JIT setup: on TXM it uses brk traps that the debugger has to see first.
+    InstallCrashHandlers();
+    StartMemoryMonitor();
 
     [[NSNotificationCenter defaultCenter]
         addObserverForName:UIApplicationDidReceiveMemoryWarningNotification
