@@ -26,6 +26,7 @@
 #include "core/device_memory.h"
 #include "core/file_sys/fs_filesystem.h"
 #include "core/file_sys/nup_container.h"
+#include "core/file_sys/vfs/vfs_vector.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/program_metadata.h"
 #include "core/file_sys/registered_cache.h"
@@ -123,18 +124,30 @@ bool IsSwitch2Program(const FileSys::VirtualFile& file) {
         if (nup.GetStatus() != Loader::ResultStatus::Success) {
             return false;
         }
-        std::optional<std::size_t> program;
-        if (const auto base = nup.FindBasePackage();
-            base && nup.GetExeFSDir(*base) != nullptr) {
-            program = base;
-        } else if (const auto update = nup.FindBestUpdatePackage();
-                   update && nup.GetExeFSDir(*update) != nullptr) {
-            program = update;
+        // Check the packages the loader boots from (the update's ExeFS first), and the NPDM
+        // copy in the package metadata: some packers leave main.npdm out of the base ExeFS.
+        std::vector<std::size_t> candidates;
+        if (const auto update = nup.FindBestUpdatePackage()) {
+            candidates.push_back(*update);
         }
-        const auto exefs = program ? nup.GetExeFSDir(*program) : nullptr;
-        const auto npdm = exefs != nullptr ? exefs->GetFile("main.npdm") : nullptr;
-        return npdm != nullptr && metadata.Load(npdm) == Loader::ResultStatus::Success &&
-               metadata.IsSwitch2();
+        if (const auto base = nup.FindBasePackage()) {
+            candidates.push_back(*base);
+        }
+        for (std::size_t i = 0; i < nup.GetPackages().size(); ++i) {
+            candidates.push_back(i);
+        }
+        for (const std::size_t index : candidates) {
+            const auto exefs = nup.GetExeFSDir(index);
+            auto npdm = exefs != nullptr ? exefs->GetFile("main.npdm") : nullptr;
+            const auto& meta_npdm = nup.GetPackages()[index].npdm;
+            if (npdm == nullptr && !meta_npdm.empty()) {
+                npdm = std::make_shared<FileSys::VectorVfsFile>(meta_npdm, "main.npdm");
+            }
+            if (npdm != nullptr && metadata.Load(npdm) == Loader::ResultStatus::Success) {
+                return metadata.IsSwitch2();
+            }
+        }
+        return false;
     }
     const auto dir = file != nullptr ? file->GetContainingDirectory() : nullptr;
     const auto npdm = dir != nullptr ? dir->GetFile("main.npdm") : nullptr;

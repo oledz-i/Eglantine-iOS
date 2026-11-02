@@ -24,13 +24,18 @@ NSString* const OpacityKey = @"EGTouchControlsOpacity";
 NSString* const HapticsKey = @"EGTouchControlsHaptics";
 NSString* const FpsKey = @"EGShowFps";
 
+// Once only: registerDefaults posts NSUserDefaultsDidChangeNotification, which the overlay
+// listens to and answers by reading the defaults again.
 void RegisterDefaults() {
-    [NSUserDefaults.standardUserDefaults registerDefaults:@{
-        EnabledKey : @YES,
-        OpacityKey : @0.55,
-        HapticsKey : @YES,
-        FpsKey : @YES,
-    }];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        [NSUserDefaults.standardUserDefaults registerDefaults:@{
+            EnabledKey : @YES,
+            OpacityKey : @0.55,
+            HapticsKey : @YES,
+            FpsKey : @YES,
+        }];
+    });
 }
 
 InputCommon::VirtualGamepad* g_gamepad = nullptr;
@@ -215,6 +220,13 @@ struct Control {
 }
 
 - (void)refreshVisibility {
+    // Defaults notifications arrive on whichever thread changed them.
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self refreshVisibility];
+        });
+        return;
+    }
     const bool controller = GCController.controllers.count > 0;
     const bool show = IosOverlay::Enabled() && !controller;
     self.alpha = show ? IosOverlay::Opacity() : 1.0;
