@@ -29,7 +29,9 @@
 #include <TargetConditionals.h>
 #include <string>
 #include <sys/types.h>
+#if !TARGET_OS_IPHONE
 #include <sys/random.h>
+#endif
 #include <mach/vm_map.h>
 #include <mach/mach.h>
 #elif defined(__FreeBSD__)
