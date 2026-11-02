@@ -1,0 +1,300 @@
+1 warning generated.
+[1472/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/ssl/ssl.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1473/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/tma/tma.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1474/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/usb/usb.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1475/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/application_root_service.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1476/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/application_display_service.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1477/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/conductor.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1478/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/container.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1479/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/manager_display_service.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1480/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/manager_root_service.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1481/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/service_creator.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1482/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/system_display_service.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1483/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/shared_buffer_manager.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1484/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/system_root_service.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1485/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/vi.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1486/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/vi/vsync_manager.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1487/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/i2c/i2c.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1488/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/gpio/gpio.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1489/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/wlan/wlan.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1490/1566] Building CXX object src/core/CMakeFiles/core.dir/internal_network/emu_net_state.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1491/1566] Building CXX object src/core/CMakeFiles/core.dir/internal_network/network.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1492/1566] Building CXX object src/core/CMakeFiles/core.dir/internal_network/network_interface.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1493/1566] Building CXX object src/core/CMakeFiles/core.dir/launch_timestamp_cache.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1494/1566] Building CXX object src/core/CMakeFiles/core.dir/internal_network/socket_proxy.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1495/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/deconstructed_rom_directory.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1496/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/kip.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1497/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/loader.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1498/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/nax.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1499/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/nro.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1500/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/nca.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1501/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/nso.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1502/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/nsp.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1503/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/xci.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1504/1566] Building CXX object src/core/CMakeFiles/core.dir/memory.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1505/1566] Building CXX object src/core/CMakeFiles/core.dir/memory/cheat_engine.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1506/1566] Building CXX object src/core/CMakeFiles/core.dir/memory/dmnt_cheat_vm.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1507/1566] Building CXX object src/core/CMakeFiles/core.dir/perf_stats.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1508/1566] Building CXX object src/core/CMakeFiles/core.dir/tools/freezer.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1509/1566] Building CXX object src/core/CMakeFiles/core.dir/reporter.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1510/1566] Building CXX object src/core/CMakeFiles/core.dir/tools/renderdoc.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1511/1566] Building CXX object src/core/CMakeFiles/core.dir/internal_network/wifi_scanner_dummy.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1512/1566] Building CXX object src/core/CMakeFiles/core.dir/arm/dynarmic/arm_dynarmic_64.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1513/1566] Building CXX object src/core/CMakeFiles/core.dir/arm/dynarmic/arm_dynarmic_32.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1514/1566] Building CXX object src/core/CMakeFiles/core.dir/arm/dynarmic/dynarmic_cp15.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1515/1566] Building CXX object src/core/CMakeFiles/core.dir/arm/dynarmic/dynarmic_exclusive_monitor.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1516/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/jit/jit_code_memory.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1517/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/jit/jit_context.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1518/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/jit/jit.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1519/1566] Building CXX object src/core/CMakeFiles/core.dir/hle/service/ssl/ssl_backend_openssl.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/src/core/hle/service/ssl/ssl_backend_openssl.cpp:162:18: warning: 'SSL_set1_host' is deprecated: Since OpenSSL 4.0 [-Wdeprecated-declarations]
+  162 |             if (!SSL_set1_host(ssl, hostname)) {
+      |                  ^
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/.cache/cpm/openssl/4.0.1-1788234794-b64f68a94e-ios-aarch64/include/openssl/ssl.h:2002:1: note: 'SSL_set1_host' has been explicitly marked deprecated here
+ 2002 | OSSL_DEPRECATEDIN_4_0 __owur int SSL_set1_host(SSL *s, const char *host);
+      | ^
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/.cache/cpm/openssl/4.0.1-1788234794-b64f68a94e-ios-aarch64/include/openssl/macros.h:207:31: note: expanded from macro 'OSSL_DEPRECATEDIN_4_0'
+  207 | #define OSSL_DEPRECATEDIN_4_0 OSSL_DEPRECATED(4.0)
+      |                               ^
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/.cache/cpm/openssl/4.0.1-1788234794-b64f68a94e-ios-aarch64/include/openssl/macros.h:57:20: note: expanded from macro 'OSSL_DEPRECATED'
+   57 |     __attribute__((deprecated("Since OpenSSL " #since)))
+      |                    ^
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/src/core/hle/service/ssl/ssl_backend_openssl.cpp:192:13: warning: 'SSL_set1_host' is deprecated: Since OpenSSL 4.0 [-Wdeprecated-declarations]
+  192 |             SSL_set1_host(ssl, nullptr);
+      |             ^
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/.cache/cpm/openssl/4.0.1-1788234794-b64f68a94e-ios-aarch64/include/openssl/ssl.h:2002:1: note: 'SSL_set1_host' has been explicitly marked deprecated here
+ 2002 | OSSL_DEPRECATEDIN_4_0 __owur int SSL_set1_host(SSL *s, const char *host);
+      | ^
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/.cache/cpm/openssl/4.0.1-1788234794-b64f68a94e-ios-aarch64/include/openssl/macros.h:207:31: note: expanded from macro 'OSSL_DEPRECATEDIN_4_0'
+  207 | #define OSSL_DEPRECATEDIN_4_0 OSSL_DEPRECATED(4.0)
+      |                               ^
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/.cache/cpm/openssl/4.0.1-1788234794-b64f68a94e-ios-aarch64/include/openssl/macros.h:57:20: note: expanded from macro 'OSSL_DEPRECATED'
+   57 |     __attribute__((deprecated("Since OpenSSL " #since)))
+      |                    ^
+3 warnings generated.
+[1520/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/camera.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1521/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/keyboard.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1522/1566] Linking CXX static library src/audio_core/libaudio_core.a
+[1523/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/tas_input.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1524/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/mouse.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1525/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/touch_screen.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1526/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/udp_client.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1527/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/virtual_gamepad.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1528/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/virtual_amiibo.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1529/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/touch_from_buttons.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1530/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/stick_from_buttons.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1531/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/udp_protocol.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1532/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/input_engine.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1533/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/input_mapping.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1534/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/input_poller.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1535/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/main.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1536/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/joycon.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1537/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/drivers/sdl_driver.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1538/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_driver.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1539/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/calibration.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1540/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/common_protocol.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1541/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/generic_functions.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1542/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/irs.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1543/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/nfc.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1544/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/poller.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1545/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/ringcon.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1546/1566] Building CXX object src/input_common/CMakeFiles/input_common.dir/helpers/joycon_protocol/rumble.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1547/1566] Building CXX object src/frontend_common/CMakeFiles/frontend_common.dir/config.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1548/1566] Building CXX object src/frontend_common/CMakeFiles/frontend_common.dir/firmware_manager.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1549/1566] Building CXX object src/frontend_common/CMakeFiles/frontend_common.dir/data_manager.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1550/1566] Building CXX object src/frontend_common/CMakeFiles/frontend_common.dir/play_time_manager.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1551/1566] Building CXX object src/frontend_common/CMakeFiles/frontend_common.dir/settings_generator.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1552/1566] Building CXX object src/frontend_common/CMakeFiles/frontend_common.dir/mod_manager.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1553/1566] Building CXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/emu_window/emu_window_sdl3.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1554/1566] Building CXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/emu_window/emu_window_sdl3_null.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1555/1566] Building CXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/nx2_sampler.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1556/1566] Building CXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/emu_window/emu_window_sdl3_vk.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1557/1566] Building CXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/sdl_config.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1558/1566] Building CXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/yuzu.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1559/1566] Building OBJCXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/__/ios/ios_overlay.mm.o
+[1560/1566] Building OBJCXX object src/yuzu_cmd/CMakeFiles/yuzu-cmd.dir/__/ios/ios_launcher.mm.o
+/Users/runner/work/Eglantine-iOS/Eglantine-iOS/src/ios/ios_launcher.mm:155:47: warning: 'windows' is deprecated: first deprecated in iOS 15.0 - Use UIWindowScene.windows on a relevant window scene instead [-Wdeprecated-declarations]
+  155 |         key = UIApplication.sharedApplication.windows.firstObject;
+      |                                               ^
+/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:109:62: note: 'windows' has been explicitly marked deprecated here
+  109 | @property(nonatomic,readonly) NSArray<__kindof UIWindow *>  *windows API_DEPRECATED("Use UIWindowScene.windows on a relevant window scene instead", ios(2.0, 15.0), visionos(1.0, 1.0)) API_UNAVAILABLE(watchos);
+      |                                                              ^
+1 warning generated.
+[1561/1566] Building CXX object src/core/CMakeFiles/core.dir/loader/nup.cpp.o
+warning: unknown -Werror warning specifier: '-Wno-error-all' [-Wunknown-warning-option]
+1 warning generated.
+[1562/1566] Linking CXX static library src/core/libcore.a
+[1563/1566] Linking CXX static library src/frontend_common/libfrontend_common.a
+[1564/1566] Linking CXX static library src/input_common/libinput_common.a
+[1565/1566] Linking CXX executable bin/Eglantine.app/Eglantine; Embedding MoltenVK.framework

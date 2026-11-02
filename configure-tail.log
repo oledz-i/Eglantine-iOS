@@ -1,0 +1,331 @@
+-- The C compiler identification is AppleClang 16.0.0.16000026
+-- The CXX compiler identification is AppleClang 16.0.0.16000026
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- The OBJC compiler identification is AppleClang 16.0.0.16000026
+-- The OBJCXX compiler identification is AppleClang 16.0.0.16000026
+-- Detecting OBJC compiler ABI info
+-- Detecting OBJC compiler ABI info - done
+-- Check for working OBJC compiler: /usr/bin/clang - skipped
+-- Detecting OBJCXX compiler ABI info
+-- Detecting OBJCXX compiler ABI info - done
+-- Check for working OBJCXX compiler: /usr/bin/clang++ - skipped
+-- Copying pre-commit hook
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Could NOT find RenderDoc (missing: RenderDoc_INCLUDE_DIR) 
+-- [CPMUtil] Using bundled package OpenSSL@4.0.1-1788234794-b64f68a94e
+-- Fetching needed dependencies with CPM
+-- [CPMUtil] Using bundled package Boost@1.92.0
+-- Boost: Release build, static libraries, MPI OFF, Python OFF, testing OFF
+-- Boost: libraries included: algorithm;icl;pool;container;heap;asio;headers;process;filesystem;crc;variant
+-- Performing Test BOOST_ATOMIC_TARGET_X86
+-- Performing Test BOOST_ATOMIC_TARGET_X86 - Failed
+-- Performing Test BOOST_ATOMIC_HAS_PTHREAD_COND_CLOCKWAIT
+-- Performing Test BOOST_ATOMIC_HAS_PTHREAD_COND_CLOCKWAIT - Failed
+-- Boost.Context: architecture arm64, binary format mach-o, ABI aapcs, assembler gas, suffix .S, implementation fcontext
+-- The ASM compiler identification is AppleClang
+-- Found assembler: /usr/bin/cc
+-- Performing Test BOOST_FILESYSTEM_HAS_INIT_PRIORITY
+-- Performing Test BOOST_FILESYSTEM_HAS_INIT_PRIORITY - Success
+-- Performing Test BOOST_FILESYSTEM_HAS_CXX20_ATOMIC_REF
+-- Performing Test BOOST_FILESYSTEM_HAS_CXX20_ATOMIC_REF - Failed
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_BLKSIZE
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_BLKSIZE - Success
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_MTIM
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_MTIM - Failed
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_MTIMENSEC
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_MTIMENSEC - Failed
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_MTIMESPEC
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_MTIMESPEC - Success
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_BIRTHTIMENSEC
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_BIRTHTIMENSEC - Failed
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_BIRTHTIMESPEC
+-- Performing Test BOOST_FILESYSTEM_HAS_STAT_ST_BIRTHTIMESPEC - Success
+-- Performing Test BOOST_FILESYSTEM_HAS_STATX
+-- Performing Test BOOST_FILESYSTEM_HAS_STATX - Failed
+-- Performing Test BOOST_FILESYSTEM_HAS_STATX_SYSCALL
+-- Performing Test BOOST_FILESYSTEM_HAS_STATX_SYSCALL - Failed
+-- Performing Test BOOST_FILESYSTEM_HAS_FDOPENDIR_NOFOLLOW
+-- Performing Test BOOST_FILESYSTEM_HAS_FDOPENDIR_NOFOLLOW - Success
+-- Performing Test BOOST_FILESYSTEM_HAS_DIRENT_D_TYPE
+-- Performing Test BOOST_FILESYSTEM_HAS_DIRENT_D_TYPE - Success
+-- Performing Test BOOST_FILESYSTEM_HAS_POSIX_AT_APIS
+-- Performing Test BOOST_FILESYSTEM_HAS_POSIX_AT_APIS - Success
+-- Performing Test BOOST_FILESYSTEM_HAS_FALLOCATE
+-- Performing Test BOOST_FILESYSTEM_HAS_FALLOCATE - Failed
+-- [CPMUtil] Using bundled package fmt@12.1.0
+-- {fmt} version: 12.1.0
+-- Build type: Release
+-- Performing Test HAS_NULLPTR_WARNING
+-- Performing Test HAS_NULLPTR_WARNING - Success
+-- [CPMUtil] Using bundled package lz4@ebb370ca83
+CMake Warning (deprecated) at .cache/cpm/lz4/ebb370ca83/build/cmake/CMakeLists.txt:11 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+This warning is for project developers.  Use -Wno-author or -Wno-deprecated
+to suppress it.
+
+-- Creating build script for LZ4 version: 1.10.0
+-- Performing Test CFLAG_pedantic_errors
+-- Performing Test CFLAG_pedantic_errors - Success
+-- Performing Test CFLAG_Wall
+-- Performing Test CFLAG_Wall - Success
+-- Performing Test CFLAG_Wextra
+-- Performing Test CFLAG_Wextra - Success
+-- Performing Test CFLAG_Wundef
+-- Performing Test CFLAG_Wundef - Success
+-- Performing Test CFLAG_Wcast_qual
+-- Performing Test CFLAG_Wcast_qual - Success
+-- Performing Test CFLAG_Wcast_align
+-- Performing Test CFLAG_Wcast_align - Success
+-- Performing Test CFLAG_Wshadow
+-- Performing Test CFLAG_Wshadow - Success
+-- Performing Test CFLAG_Wswitch_enum
+-- Performing Test CFLAG_Wswitch_enum - Success
+-- Performing Test CFLAG_Wdeclaration_after_statement
+-- Performing Test CFLAG_Wdeclaration_after_statement - Success
+-- Performing Test CFLAG_Wstrict_prototypes
+-- Performing Test CFLAG_Wstrict_prototypes - Success
+-- Performing Test CFLAG_Wpointer_arith
+-- Performing Test CFLAG_Wpointer_arith - Success
+-- [CPMUtil] Using bundled package zstd@33618c8
+-- ZSTD VERSION: 1.5.8
+-- CMAKE_INSTALL_PREFIX: /usr/local
+-- CMAKE_INSTALL_LIBDIR: lib
+-- ZSTD_LEGACY_SUPPORT enabled
+-- Multi-threading support enabled
+-- Performing Test C_FLAG_WALL
+-- Performing Test C_FLAG_WALL - Success
+-- Performing Test CXX_FLAG_WALL
+-- Performing Test CXX_FLAG_WALL - Success
+-- Performing Test C_FLAG_WEXTRA
+-- Performing Test C_FLAG_WEXTRA - Success
+-- Performing Test CXX_FLAG_WEXTRA
+-- Performing Test CXX_FLAG_WEXTRA - Success
+-- Performing Test C_FLAG_WUNDEF
+-- Performing Test C_FLAG_WUNDEF - Success
+-- Performing Test CXX_FLAG_WUNDEF
+-- Performing Test CXX_FLAG_WUNDEF - Success
+-- Performing Test C_FLAG_WSHADOW
+-- Performing Test C_FLAG_WSHADOW - Success
+-- Performing Test CXX_FLAG_WSHADOW
+-- Performing Test CXX_FLAG_WSHADOW - Success
+-- Performing Test C_FLAG_WCAST_ALIGN
+-- Performing Test C_FLAG_WCAST_ALIGN - Success
+-- Performing Test CXX_FLAG_WCAST_ALIGN
+-- Performing Test CXX_FLAG_WCAST_ALIGN - Success
+-- Performing Test C_FLAG_WCAST_QUAL
+-- Performing Test C_FLAG_WCAST_QUAL - Success
+-- Performing Test CXX_FLAG_WCAST_QUAL
+-- Performing Test CXX_FLAG_WCAST_QUAL - Success
+-- Performing Test C_FLAG_WSTRICT_PROTOTYPES
+-- Performing Test C_FLAG_WSTRICT_PROTOTYPES - Success
+-- Performing Test LD_FLAG_WL_Z_NOEXECSTACK
+-- Performing Test LD_FLAG_WL_Z_NOEXECSTACK - Failed
+-- Performing Test C_FLAG_QUNUSED_ARGUMENTS
+-- Performing Test C_FLAG_QUNUSED_ARGUMENTS - Success
+-- Performing Test CXX_FLAG_QUNUSED_ARGUMENTS
+-- Performing Test CXX_FLAG_QUNUSED_ARGUMENTS - Success
+-- Performing Test C_FLAG_WA_NOEXECSTACK
+-- Performing Test C_FLAG_WA_NOEXECSTACK - Success
+-- Performing Test CXX_FLAG_WA_NOEXECSTACK
+-- Performing Test CXX_FLAG_WA_NOEXECSTACK - Success
+-- [CPMUtil] Using bundled package nlohmann_json@v3.12.0
+-- Using the multi-header code from /Users/runner/work/Eglantine-iOS/Eglantine-iOS/.cache/cpm/nlohmann_json/v3.12.0/include/
+-- [CPMUtil] Using bundled package ZLIB@v1.3.2
+-- Looking for sys/types.h
+-- Looking for sys/types.h - found
+-- Looking for stdint.h
+-- Looking for stdint.h - found
+-- Looking for stddef.h
+-- Looking for stddef.h - found
+-- Check size of off64_t
+-- Check size of off64_t - failed
+-- Looking for fseeko
+-- Looking for fseeko - found
+-- Looking for stdarg.h
+-- Looking for stdarg.h - found
+-- Looking for unistd.h
+-- Looking for unistd.h - found
+-- Performing Test HAVE___ATTR__VIS_HIDDEN
+-- Performing Test HAVE___ATTR__VIS_HIDDEN - Success
+-- [CPMUtil] Using bundled package Opus@a3f0ec02b3
+-- Found Git: /opt/homebrew/bin/git (found version "2.55.0")
+CMake Warning at .cache/cpm/opus/a3f0ec02b3/cmake/OpusPackageVersion.cmake:61 (message):
+  Could not get package version.
+Call Stack (most recent call first):
+  .cache/cpm/opus/a3f0ec02b3/CMakeLists.txt:5 (get_package_version)
+
+
+-- Opus project version: 0
+-- Performing Test VLA_SUPPORTED
+-- Performing Test VLA_SUPPORTED -- success
+-- Looking for alloca.h
+-- Looking for alloca.h - found
+-- Looking for alloca
+-- Looking for alloca - found
+-- Looking for floor in m
+-- Looking for floor in m - found
+-- Looking for lrintf
+-- Looking for lrintf - found
+-- Looking for lrint
+-- Looking for lrint - found
+-- Looking for elf_aux_info
+-- Looking for elf_aux_info - not found
+-- Check CPU arch: CMAKE_GENERATOR_PLATFORM= CMAKE_SYSTEM_PROCESSOR=arm64
+-- Check NEON support by compiler
+-- Looking for arm_neon.h
+-- Looking for arm_neon.h - found
+-- Performing Test FAST_MATH_SUPPORTED
+-- Performing Test FAST_MATH_SUPPORTED - Success
+-- Performing Test STACK_PROTECTOR_SUPPORTED
+-- Performing Test STACK_PROTECTOR_SUPPORTED - Success
+-- Performing Test HIDDEN_VISIBILITY_SUPPORTED
+-- Performing Test HIDDEN_VISIBILITY_SUPPORTED - Success
+-- Performing Test Wall_SUPPORTED
+-- Performing Test Wall_SUPPORTED - Success
+-- Performing Test W_SUPPORTED
+-- Performing Test W_SUPPORTED - Success
+-- Performing Test Wstrictprototypes_SUPPORTED
+-- Performing Test Wstrictprototypes_SUPPORTED - Success
+-- Performing Test Wextra_SUPPORTED
+-- Performing Test Wextra_SUPPORTED - Success
+-- Performing Test Wcastalign_SUPPORTED
+-- Performing Test Wcastalign_SUPPORTED - Success
+-- Performing Test Wnestedexterns_SUPPORTED
+-- Performing Test Wnestedexterns_SUPPORTED - Success
+-- Performing Test Wshadow_SUPPORTED
+-- Performing Test Wshadow_SUPPORTED - Success
+-- The following features have been enabled:
+
+ * OPUS_ENABLE_FLOAT_API, compile with the floating point API (for machines with float library).
+ * OPUS_HARDENING, run-time checks that are cheap and safe for use in production.
+ * OPUS_VAR_ARRAYS, use variable length arrays for stack arrays.
+ * OPUS_STACK_PROTECTOR, use stack protection.
+ * OPUS_FORTIFY_SOURCE, add protection against buffer overflows.
+
+-- The following OPTIONAL packages have been found:
+
+ * Git
+
+-- The following REQUIRED packages have been found:
+
+ * Threads
+
+-- The following features have been disabled:
+
+ * OPUS_BUILD_SHARED_LIBRARY, build shared library.
+ * OPUS_BUILD_TESTING, build tests.
+ * OPUS_CUSTOM_MODES, enable non-Opus modes, e.g. 44.1 kHz & 2^n frames.
+ * OPUS_BUILD_PROGRAMS, build programs.
+ * OPUS_DISABLE_INTRINSICS, disable all intrinsics optimizations.
+ * OPUS_FIXED_POINT, compile as fixed-point (for machines without a fast enough FPU).
+ * OPUS_FLOAT_APPROX, enable floating point approximations (Ensure your platform supports IEEE 754 before enabling).
+ * OPUS_ASSERTIONS, additional software error checking.
+ * OPUS_FUZZING, causes the encoder to make random decisions (do not use in production).
+ * OPUS_CHECK_ASM, enable bit-exactness checks between optimized and c implementations.
+ * OPUS_DNN_FLOAT_DEBUG, Run DNN computations as float for debugging purposes.
+ * OPUS_INSTALL, Install Opus targets
+ * OPUS_INSTALL_PKG_CONFIG_MODULE, install pkg-config module.
+ * OPUS_INSTALL_CMAKE_CONFIG_MODULE, install CMake package config module.
+ * OPUS_DRED, enable DRED.
+ * OPUS_OSCE, enable OSCE.
+ * OPUS_BUILD_FRAMEWORK, build Framework bundle for Apple systems.
+ * OPUS_FIXED_POINT_DEBUG, debug fixed-point implementation.
+ * OPUS_USE_ALLOCA, use alloca for stack arrays (on non-C99 compilers).
+ * OPUS_NONTHREADSAFE_PSEUDOSTACK, use a non threadsafe pseudostack when neither variable length arrays or alloca is supported.
+ * OPUS_FAST_MATH, enable fast math (unsupported and discouraged use, as code is not well tested with this build option).
+
+-- The following OPTIONAL packages have not been found:
+
+ * RenderDoc
+
+ERRORRuntime cpu capability detection needed for MAY_HAVE_NEON
+-- Platform Libraries: /Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/UIKit.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/Metal.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/QuartzCore.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreGraphics.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreVideo.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreMedia.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/VideoToolbox.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/Security.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/UniformTypeIdentifiers.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/Foundation.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreFoundation.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/GameController.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/AVFoundation.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/AudioToolbox.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreAudio.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreHaptics.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreMotion.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CoreBluetooth.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/OpenGLES.framework;/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk/System/Library/Frameworks/CFNetwork.framework;iconv;bz2;z
+-- [CPMUtil] Using bundled package enet@v1.3.18
+-- Looking for fcntl
+-- Looking for fcntl - found
+-- Looking for poll
+-- Looking for poll - found
+-- Looking for getaddrinfo
+-- Looking for getaddrinfo - found
+-- Looking for getnameinfo
+-- Looking for getnameinfo - found
+-- Looking for gethostbyname_r
+-- Looking for gethostbyname_r - not found
+-- Looking for gethostbyaddr_r
+-- Looking for gethostbyaddr_r - not found
+-- Looking for inet_pton
+-- Looking for inet_pton - found
+-- Looking for inet_ntop
+-- Looking for inet_ntop - found
+-- Performing Test HAS_MSGHDR_FLAGS
+-- Performing Test HAS_MSGHDR_FLAGS - Success
+-- Check size of socklen_t
+-- Check size of socklen_t - done
+-- [CPMUtil] Using bundled package zbic@11b08f2712264bbed731545085cbd9702096ceb7
+-- [CPMUtil] Using bundled package httplib@v0.46.0
+-- [CPMUtil] Using bundled package oaknut@v2.0.3
+-- [CPMUtil] Using bundled package VulkanHeaders@v1.4.345
+-- [CPMUtil] Using bundled package VulkanUtilityLibraries@v1.4.345
+-- [CPMUtil] Using bundled package frozen@61dce5ae18
+-- [CPMUtil] Using bundled package SimpleIni@v4.25
+-- Using bundled SDL3
+-- [CPMUtil] Using bundled package SDL3@3.4.14-1788231389-147a8ee32d
+-- [CPMUtil] Using bundled package SPIRV-Headers@vulkan-sdk-1.4.341.0
+-- [CPMUtil] Using bundled package sirit@v1.0.5
+CMake Warning (policy) at .cache/cpm/sirit/v1.0.5/CMakeLists.txt:37 (set):
+  Policy CMP0218 is not set: The CMAKE_WARN_DEPRECATED and
+  CMAKE_ERROR_DEPRECATED variables are ignored.  Run "cmake --help-policy
+  CMP0218" for policy details.  Use the cmake_policy command to set the
+  policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+-- [CPMUtil] Using bundled package VulkanMemoryAllocator@v3.3.0
+-- Found PkgConfig: /opt/homebrew/bin/pkg-config (found version "3.0.6")
+-- Checking for module 'libva'
+--   Package 'libva' not found
+-- Checking for module 'cuda'
+--   Package 'cuda' not found
+-- Checking for module 'ffnvcodec'
+--   Package 'ffnvcodec' not found
+-- Checking for module 'vdpau'
+--   Package 'vdpau' not found
+-- Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB) 
+CMake Warning at externals/ffmpeg/CMakeLists.txt:115 (message):
+  ffmpeg: X11 libraries not found, disabling VA-API...
+
+
+CMake Warning at externals/ffmpeg/CMakeLists.txt:155 (message):
+  ffmpeg: libvdpau-dev not found, disabling Video Decode and Presentation API
+  for Unix (VDPAU)...
+
+
+-- [CPMUtil] Using bundled package FFmpeg@9.0.2-1790726865-946fcce07b
+-- FFmpeg Libraries: FFmpeg::FFmpeg
+-- Downloading time zone data...
+-- [CPMUtil] Using bundled package nx_tzdb@230326
+-- [CPMUtil] Using bundled package gamemode@ce6fe122f3
+-- [CPMUtil] Using bundled package MoltenVK-iOS@v1.4.1-ryujinx
+-- Found libusb: usb-1.0 (found version "1.0.30")
+-- [GetSCMRev] Git commit: fde72e1b5edab7831b15faad707aa3ac0b964582
+-- [GetSCMRev] Git tag: ios
+-- [GetSCMRev] Git refspec: ios
+-- Configuring done (13.1s)
+-- Generating done (0.4s)
+-- Build files have been written to: /Users/runner/work/Eglantine-iOS/Eglantine-iOS/build/ios
