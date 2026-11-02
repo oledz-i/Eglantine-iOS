@@ -30,6 +30,9 @@
 #include "video_core/vulkan_common/nsight_aftermath_tracker.h"
 #include "video_core/vulkan_common/vma.h"
 #include "video_core/vulkan_common/vulkan_device.h"
+#ifdef EDEN_IOS
+#include <sys/sysctl.h>
+#endif
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 #include "video_core/gpu_logging/gpu_logging.h"
 
@@ -1740,6 +1743,18 @@ void Device::CollectPhysicalMemoryInfo() {
             device_access_memory = std::min<u64>(device_access_memory, normal_memory + scaler_memory);
         }
     }
+#ifdef EDEN_IOS
+    // Metal allocations count against the app's jetsam limit, unlike guest RAM (file-backed), so
+    // the GPU caches get about a third of the phone's RAM: 2.7 GiB on 8 GB devices, 4 GiB on 12 GB.
+    u64 physical_memory = 0;
+    size_t physical_memory_size = sizeof(physical_memory);
+    if (sysctlbyname("hw.memsize", &physical_memory, &physical_memory_size, nullptr, 0) == 0 &&
+        physical_memory != 0) {
+        device_access_memory = (std::min)(device_access_memory, physical_memory / 3);
+        LOG_INFO(Render_Vulkan, "iOS: GPU memory budget {} MiB of {} MiB RAM",
+                 device_access_memory >> 20, physical_memory >> 20);
+    }
+#endif
 }
 
 void Device::CollectToolingInfo() {
