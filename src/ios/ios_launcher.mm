@@ -108,6 +108,37 @@ void ApplyJitOverride() {
     }
 }
 
+// Debug tracing: a Settings switch, plus user/env.txt for any other variable (KEY=VALUE lines).
+NSString* const kDebugTraceKey = @"EGDebugTrace";
+
+void ApplyDebugTrace(BOOL on) {
+    if (on) {
+        setenv("EDEN_NX2_SVC_TRACE", "1", 1);
+        setenv("EDEN_NX2_IPC_TRACE", "1", 1);
+    } else {
+        unsetenv("EDEN_NX2_SVC_TRACE");
+        unsetenv("EDEN_NX2_IPC_TRACE");
+    }
+}
+
+void ApplyEnvFile() {
+    NSString* path = [UserPath() stringByAppendingPathComponent:@"env.txt"];
+    NSString* text = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    for (NSString* raw in [text componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
+        NSString* line = [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        const NSRange eq = [line rangeOfString:@"="];
+        if (line.length == 0 || [line hasPrefix:@"#"] || eq.location == NSNotFound || eq.location == 0) {
+            continue;
+        }
+        NSString* key = [[line substringToIndex:eq.location]
+            stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        NSString* value = [[line substringFromIndex:eq.location + 1]
+            stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        setenv(key.UTF8String, value.UTF8String, 1);
+        fprintf(stderr, "env.txt: %s=%s\n", key.UTF8String, value.UTF8String);
+    }
+}
+
 UIViewController* TopViewController() {
     UIWindow* key = nil;
     for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
@@ -665,6 +696,16 @@ NSInteger IndexOf(const std::vector<E>& values, E value) {
                              .get_bool = ^BOOL { return IosOverlay::ShowFps(); },
                              .set_bool = ^(BOOL on) { IosOverlay::SetShowFps(on); }});
 
+    SettingSection debug{@"Debugging", @"Logs every system call and service request with its result to eden_log.txt. "
+                                       @"Slower; turn it on only to capture a log of a game that stops or crashes. "
+                                       @"Other variables can go in user/env.txt as KEY=VALUE lines."};
+    debug.rows.push_back({.title = @"Trace system calls",
+                          .get_bool = ^BOOL { return [NSUserDefaults.standardUserDefaults boolForKey:kDebugTraceKey]; },
+                          .set_bool = ^(BOOL on) {
+                              [NSUserDefaults.standardUserDefaults setBool:on forKey:kDebugTraceKey];
+                              ApplyDebugTrace(on);
+                          }});
+
     SettingSection about{@"About", nil};
     NSDictionary* info = NSBundle.mainBundle.infoDictionary;
     about.rows.push_back({.title = @"Version",
@@ -675,7 +716,7 @@ NSInteger IndexOf(const std::vector<E>& values, E value) {
                           .value = [NSString stringWithFormat:@"%.1f GiB",
                                                               os_proc_available_memory() / (1024.0 * 1024.0 * 1024.0)]});
 
-    _sections = {graphics, system, audio, controls, about};
+    _sections = {graphics, system, audio, controls, debug, about};
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView*)tableView {
@@ -1115,6 +1156,8 @@ void PrepareEnvironment() {
     setenv("MVK_CONFIG_LOG_LEVEL", "2", 0);
 
     ApplyJitOverride();
+    ApplyDebugTrace([NSUserDefaults.standardUserDefaults boolForKey:kDebugTraceKey]);
+    ApplyEnvFile();
     Dynarmic::IosJit::Initialize();
     // After the JIT setup: on TXM it uses brk traps that the debugger has to see first.
     InstallCrashHandlers();
