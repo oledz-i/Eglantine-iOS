@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <cstdlib>
+#include <functional>
 #include <mutex>
 #include "core/loader/nup.h"
 
@@ -205,6 +206,22 @@ ResultStatus AppLoader_NUP::VerifyIntegrity(
     return nup->VerifyIntegrity(std::move(progress_callback));
 }
 
+namespace {
+void LogTree(const FileSys::VirtualDir& dir, const std::string& prefix, std::size_t& count) {
+    if (dir == nullptr) {
+        return;
+    }
+    for (const auto& file : dir->GetFiles()) {
+        if (++count <= 3000) {
+            LOG_INFO(Loader, "romfs {}{} {:#x}", prefix, file->GetName(), file->GetSize());
+        }
+    }
+    for (const auto& sub : dir->GetSubdirectories()) {
+        LogTree(sub, prefix + sub->GetName() + "/", count);
+    }
+}
+} // namespace
+
 ResultStatus AppLoader_NUP::ReadRomFS(FileSys::VirtualFile& out_file) {
     const auto base_index = nup->FindBasePackage();
     const auto base_romfs = base_index ? nup->GetRomFSDir(*base_index) : FileSys::VirtualDir{};
@@ -221,7 +238,24 @@ ResultStatus AppLoader_NUP::ReadRomFS(FileSys::VirtualFile& out_file) {
                                  std::getenv("EDEN_NX2_NUP_CHECK") != nullptr;
     if (diagnose) {
         static std::once_flag checked;
-        std::call_once(checked, [this] { nup->LogDiagnostics(); });
+        std::call_once(checked, [&] {
+            nup->LogDiagnostics();
+            std::size_t base_count = 0, update_count = 0, merged_count = 0;
+            LOG_INFO(Loader, "romfs tree (merged, base {} update {}):",
+                     base_index ? static_cast<int>(*base_index) : -1,
+                     update_index ? static_cast<int>(*update_index) : -1);
+            LogTree(merged, "/", merged_count);
+            std::function<void(const FileSys::VirtualDir&, std::size_t&)> count_files =
+                [&](const FileSys::VirtualDir& d, std::size_t& n) {
+                    if (d == nullptr) return;
+                    n += d->GetFiles().size();
+                    for (const auto& sub : d->GetSubdirectories()) count_files(sub, n);
+                };
+            count_files(base_romfs, base_count);
+            count_files(update_romfs, update_count);
+            LOG_INFO(Loader, "romfs files: base {}, update {}, merged {}", base_count, update_count,
+                     merged_count);
+        });
         out_file = FileSys::CreateTrackedRomFS(merged);
     } else {
         out_file = FileSys::CreateRomFS(merged);

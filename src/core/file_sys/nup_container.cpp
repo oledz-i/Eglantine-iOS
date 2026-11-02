@@ -791,7 +791,7 @@ void NupContainer::LogDiagnostics() const {
     }
     // Every file up to 32 MiB (the ones a game reads first: configs, archives' headers).
     constexpr u64 Limit = 32ULL << 20;
-    std::size_t checked = 0, bad = 0, skipped = 0, compressed = 0;
+    std::size_t checked = 0, bad = 0, skipped = 0, compressed = 0, empty = 0, large = 0;
     u64 bytes = 0;
     for (std::size_t i = 0; i < files.size(); ++i) {
         const FileNode& node = files[i];
@@ -799,6 +799,7 @@ void NupContainer::LogDiagnostics() const {
             ++compressed;
         }
         if (node.size == 0 || node.size > Limit) {
+            ++(node.size == 0 ? empty : large);
             ++skipped;
             continue;
         }
@@ -827,8 +828,8 @@ void NupContainer::LogDiagnostics() const {
             }
         }
     }
-    LOG_INFO(Loader, "NUP check: {} files, {} compressed, {} checked ({} MiB), {} bad, {} skipped",
-             files.size(), compressed, checked, bytes >> 20, bad, skipped);
+    LOG_INFO(Loader, "NUP check: {} files, {} compressed, {} checked ({} MiB), {} bad, {} skipped ({} empty, {} over 32 MiB)",
+             files.size(), compressed, checked, bytes >> 20, bad, skipped, empty, large);
 }
 
 Loader::ResultStatus NupContainer::VerifyIntegrity(
