@@ -60,6 +60,8 @@
 #include "yuzu_cmd/emu_window/emu_window_sdl3_vk.h"
 #include "yuzu_cmd/nx2_sampler.h"
 #ifdef EDEN_IOS
+#include "common/param_package.h"
+#include "hid_core/hid_core.h"
 #include "ios/ios_launcher.h"
 #endif
 
@@ -297,6 +299,10 @@ static bool PackNup(const std::string& source, const std::string& output) {
     }
 }
 
+#ifdef EDEN_IOS
+static void IosAutoMapGamepad(SdlState* state);
+#endif
+
 // Errors before the game runs: eden-cli only logs them, the iOS app also shows them, since it
 // would otherwise just close.
 static SDL_AppResult FailStartup(const std::string& message) {
@@ -415,6 +421,10 @@ extern "C" SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     state->system.SetFilesystem(std::make_shared<FileSys::RealVfsFilesystem>());
     state->system.GetFileSystemController().CreateFactories(*state->system.GetFilesystem());
     state->system.GetUserChannel().clear();
+
+#ifdef EDEN_IOS
+    IosAutoMapGamepad(state);
+#endif
 
     Service::AM::FrontendAppletParameters load_parameters{
         .applet_id = Service::AM::AppletId::Application,
@@ -550,8 +560,60 @@ static void RunKeyScript(InputCommon::InputSubsystem& input_subsystem) {
     }
 }
 
+#ifdef EDEN_IOS
+// eden-cli binds player 1 to the keyboard by default, which a phone doesn't have. Bind it to the
+// first game controller instead, and again when that one goes away and another shows up. Player
+// 1 bindings from the config file that aren't keyboard ones are left alone.
+static void IosAutoMapGamepad(SdlState* state) {
+    static std::string mapped_device;
+    auto& player = Settings::values.players.GetValue()[0];
+    const Common::ParamPackage current{player.buttons[Settings::NativeButton::A]};
+    const auto devices = state->input_subsystem.GetInputDevices();
+    const Common::ParamPackage* gamepad = nullptr;
+    bool mapped_present = false;
+    for (const auto& device : devices) {
+        if (device.Get("engine", "") != "sdl") {
+            continue;
+        }
+        if (gamepad == nullptr) {
+            gamepad = &device;
+        }
+        if (!mapped_device.empty() && device.Serialize() == mapped_device) {
+            mapped_present = true;
+        }
+    }
+    const bool keyboard_bound = current.Get("engine", "") == "keyboard";
+    const bool ours_gone = !mapped_device.empty() && !mapped_present;
+    if (gamepad == nullptr || !(keyboard_bound || ours_gone)) {
+        return;
+    }
+    for (const auto& [button, param] : state->input_subsystem.GetButtonMappingForDevice(*gamepad)) {
+        player.buttons[button] = param.Serialize();
+    }
+    for (const auto& [analog, param] : state->input_subsystem.GetAnalogMappingForDevice(*gamepad)) {
+        player.analogs[analog] = param.Serialize();
+    }
+    for (const auto& [motion, param] : state->input_subsystem.GetMotionMappingForDevice(*gamepad)) {
+        player.motions[motion] = param.Serialize();
+    }
+    player.connected = true;
+    player.controller_type = Settings::ControllerType::ProController;
+    mapped_device = gamepad->Serialize();
+    LOG_INFO(Frontend, "iOS: player 1 bound to {}", gamepad->Get("display", "controller"));
+    if (state->system.IsPoweredOn()) {
+        state->system.HIDCore().ReloadInputDevices();
+    }
+}
+#endif
+
 extern "C" SDL_AppResult SDL_AppIterate(void *appstate) {
     SdlState *state = (SdlState *)appstate;
+#ifdef EDEN_IOS
+    // Once a second (the callbacks run at 240 Hz).
+    if (static u32 ticks{}; ticks++ % 240 == 0) {
+        IosAutoMapGamepad(state);
+    }
+#endif
     RunKeyScript(state->input_subsystem);
     if (state->emu_window) {
         state->emu_window->ApplyPendingTitle();
